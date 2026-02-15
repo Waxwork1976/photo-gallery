@@ -1,7 +1,7 @@
-using System.Net;
 using System.Reflection;
+using Microsoft.AspNetCore.Http;
+using Microsoft.AspNetCore.Mvc;
 using Microsoft.Azure.Functions.Worker;
-using Microsoft.Azure.Functions.Worker.Http;
 using PhotoFunctions.Models;
 
 namespace PhotoFunctions.Functions;
@@ -19,14 +19,12 @@ public sealed class HealthFunction
             .InformationalVersion ?? "1.0.0";
 
     [Function("health")]
-    public async Task<HttpResponseData> Run(
-        [HttpTrigger(AuthorizationLevel.Anonymous, "get", Route = "health")] HttpRequestData req)
+    public IActionResult Run(
+        [HttpTrigger(AuthorizationLevel.Anonymous, "get", Route = "health")] HttpRequest req)
     {
-        var response = req.CreateResponse(HttpStatusCode.OK);
-        await response.WriteAsJsonAsync(new HealthResponse(
+        return new OkObjectResult(new HealthResponse(
             Status: "healthy",
             Timestamp: DateTimeOffset.UtcNow.ToString("o"),
             Version: Version));
-        return response;
     }
 }

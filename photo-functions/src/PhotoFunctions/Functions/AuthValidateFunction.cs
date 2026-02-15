@@ -1,6 +1,6 @@
-using System.Net;
+using Microsoft.AspNetCore.Http;
+using Microsoft.AspNetCore.Mvc;
 using Microsoft.Azure.Functions.Worker;
-using Microsoft.Azure.Functions.Worker.Http;
 using Microsoft.Extensions.Logging;
 using PhotoFunctions.Models;
 using PhotoFunctions.Services;
@@ -25,28 +25,24 @@ public sealed class AuthValidateFunction
     }
 
     [Function("auth-validate")]
-    public async Task<HttpResponseData> Run(
-        [HttpTrigger(AuthorizationLevel.Anonymous, "post", Route = "auth-validate")] HttpRequestData req)
+    public async Task<IActionResult> Run(
+        [HttpTrigger(AuthorizationLevel.Anonymous, "post", Route = "auth-validate")] HttpRequest req)
     {
         // 1. Extract bearer token
         var token = _jwtService.ExtractBearerToken(
-            req.Headers.TryGetValues("Authorization", out var values)
-                ? values.FirstOrDefault()
-                : null);
+            req.Headers.Authorization.FirstOrDefault());
 
         if (token is null)
         {
             _logger.LogWarning("auth-validate called without a Bearer token");
-            return await CreateJsonResponse(req, HttpStatusCode.Unauthorized,
-                new ErrorResponse("No token provided"));
+            return new UnauthorizedObjectResult(new ErrorResponse("No token provided"));
         }
 
         // 2. Validate JWT signature & claims
         var principal = await _jwtService.ValidateTokenAsync(token);
         if (principal is null)
         {
-            return await CreateJsonResponse(req, HttpStatusCode.Unauthorized,
-                new ErrorResponse("Invalid token"));
+            return new UnauthorizedObjectResult(new ErrorResponse("Invalid token"));
         }
 
         // 3. Extract user claims
@@ -59,31 +55,18 @@ public sealed class AuthValidateFunction
         if (string.IsNullOrEmpty(oid))
         {
             _logger.LogWarning("Token is valid but missing 'oid' claim");
-            return await CreateJsonResponse(req, HttpStatusCode.Unauthorized,
-                new ErrorResponse("Token missing required claims"));
+            return new UnauthorizedObjectResult(new ErrorResponse("Token missing required claims"));
         }
 
         // 4. Check authorization
         if (!_jwtService.IsAuthorizedUser(oid))
         {
             _logger.LogWarning("User {Oid} is not in the allowed list", oid);
-            return await CreateJsonResponse(req, HttpStatusCode.Forbidden,
-                new ErrorResponse("User not authorized"));
+            return new ObjectResult(new ErrorResponse("User not authorized")) { StatusCode = StatusCodes.Status403Forbidden };
         }
 
         _logger.LogInformation("User {Name} ({Oid}) validated successfully", name, oid);
 
-        return await CreateJsonResponse(req, HttpStatusCode.OK,
-            new AuthValidateResponse(true, new AuthUserInfo(oid, email, name)));
-    }
-
-    // ----- Helper -----
-
-    private static async Task<HttpResponseData> CreateJsonResponse<T>(
-        HttpRequestData req, HttpStatusCode statusCode, T body)
-    {
-        var response = req.CreateResponse(statusCode);
-        await response.WriteAsJsonAsync(body);
-        return response;
+        return new OkObjectResult(new AuthValidateResponse(true, new AuthUserInfo(oid, email, name)));
     }
 }

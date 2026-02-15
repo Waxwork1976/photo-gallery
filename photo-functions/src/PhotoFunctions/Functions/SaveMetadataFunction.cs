@@ -1,9 +1,7 @@
-using System.Net;
+using Microsoft.AspNetCore.Http;
+using Microsoft.AspNetCore.Mvc;
 using Microsoft.Azure.Functions.Worker;
-using Microsoft.Azure.Functions.Worker.Http;
 using Microsoft.Extensions.Logging;
-using Microsoft.Extensions.Options;
-using PhotoFunctions.Configuration;
 using PhotoFunctions.Models;
 using PhotoFunctions.Services;
 
@@ -19,26 +17,23 @@ public sealed class SaveMetadataFunction
     private readonly IJwtValidationService _jwtService;
     private readonly IPhotoTableService _tableService;
     private readonly IBlobStorageService _blobService;
-    private readonly AzureStorageOptions _storageOptions;
     private readonly ILogger<SaveMetadataFunction> _logger;
 
     public SaveMetadataFunction(
         IJwtValidationService jwtService,
         IPhotoTableService tableService,
         IBlobStorageService blobService,
-        IOptions<AzureStorageOptions> storageOptions,
         ILogger<SaveMetadataFunction> logger)
     {
         _jwtService = jwtService;
         _tableService = tableService;
         _blobService = blobService;
-        _storageOptions = storageOptions.Value;
         _logger = logger;
     }
 
     [Function("save-metadata")]
-    public async Task<HttpResponseData> Run(
-        [HttpTrigger(AuthorizationLevel.Anonymous, "post", Route = "save-metadata")] HttpRequestData req)
+    public async Task<IActionResult> Run(
+        [HttpTrigger(AuthorizationLevel.Anonymous, "post", Route = "save-metadata")] HttpRequest req)
     {
         // 1. Authenticate & authorize
         var (oid, authError) = await AuthorizeAsync(req);
@@ -53,8 +48,7 @@ public sealed class SaveMetadataFunction
         }
         catch
         {
-            return await CreateJsonResponse(req, HttpStatusCode.BadRequest,
-                new ErrorResponse("Invalid request body"));
+            return new BadRequestObjectResult(new ErrorResponse("Invalid request body"));
         }
 
         if (body is null
@@ -62,7 +56,7 @@ public sealed class SaveMetadataFunction
             || string.IsNullOrWhiteSpace(body.OriginalFilename)
             || string.IsNullOrWhiteSpace(body.ContentType))
         {
-            return await CreateJsonResponse(req, HttpStatusCode.BadRequest,
+            return new BadRequestObjectResult(
                 new ErrorResponse("Missing required fields: blobName, originalFilename, contentType"));
         }
 
@@ -95,52 +89,32 @@ public sealed class SaveMetadataFunction
         _logger.LogInformation("Saved metadata for blob {BlobName} as entity {RowKey}",
             body.BlobName, inserted.RowKey);
 
-        return await CreateJsonResponse(req, HttpStatusCode.Created,
-            new SaveMetadataResponse(true, inserted.RowKey, blobUrl));
+        return new ObjectResult(new SaveMetadataResponse(true, inserted.RowKey, blobUrl))
+        {
+            StatusCode = StatusCodes.Status201Created
+        };
     }
 
     // ----- Helpers -----
 
-    private async Task<(string? oid, HttpResponseData? error)> AuthorizeAsync(HttpRequestData req)
+    private async Task<(string? oid, IActionResult? error)> AuthorizeAsync(HttpRequest req)
     {
         var token = _jwtService.ExtractBearerToken(
-            req.Headers.TryGetValues("Authorization", out var values)
-                ? values.FirstOrDefault()
-                : null);
+            req.Headers.Authorization.FirstOrDefault());
 
         if (token is null)
-        {
-            var resp = await CreateJsonResponse(req, HttpStatusCode.Unauthorized,
-                new ErrorResponse("No token provided"));
-            return (null, resp);
-        }
+            return (null, new UnauthorizedObjectResult(new ErrorResponse("No token provided")));
 
         var principal = await _jwtService.ValidateTokenAsync(token);
         if (principal is null)
-        {
-            var resp = await CreateJsonResponse(req, HttpStatusCode.Unauthorized,
-                new ErrorResponse("Invalid token"));
-            return (null, resp);
-        }
+            return (null, new UnauthorizedObjectResult(new ErrorResponse("Invalid token")));
 
         var oid = principal.FindFirst("oid")?.Value
                   ?? principal.FindFirst("http://schemas.microsoft.com/identity/claims/objectidentifier")?.Value;
 
         if (string.IsNullOrEmpty(oid) || !_jwtService.IsAuthorizedUser(oid))
-        {
-            var resp = await CreateJsonResponse(req, HttpStatusCode.Forbidden,
-                new ErrorResponse("User not authorized"));
-            return (null, resp);
-        }
+            return (null, new ObjectResult(new ErrorResponse("User not authorized")) { StatusCode = StatusCodes.Status403Forbidden });
 
         return (oid, null);
-    }
-
-    private static async Task<HttpResponseData> CreateJsonResponse<T>(
-        HttpRequestData req, HttpStatusCode statusCode, T body)
-    {
-        var response = req.CreateResponse(statusCode);
-        await response.WriteAsJsonAsync(body);
-        return response;
     }
 }

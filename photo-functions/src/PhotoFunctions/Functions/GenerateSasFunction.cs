@@ -1,6 +1,7 @@
-using System.Net;
+using System.Security.Claims;
+using Microsoft.AspNetCore.Http;
+using Microsoft.AspNetCore.Mvc;
 using Microsoft.Azure.Functions.Worker;
-using Microsoft.Azure.Functions.Worker.Http;
 using Microsoft.Extensions.Logging;
 using PhotoFunctions.Models;
 using PhotoFunctions.Services;
@@ -22,8 +23,6 @@ public sealed class GenerateSasFunction
         "image/gif",
     };
 
-    private const long MaxFileSizeBytes = 20 * 1024 * 1024; // 20 MB (we can't enforce here, but document it)
-
     private readonly IJwtValidationService _jwtService;
     private readonly IBlobStorageService _blobService;
     private readonly ILogger<GenerateSasFunction> _logger;
@@ -39,13 +38,13 @@ public sealed class GenerateSasFunction
     }
 
     [Function("generate-sas")]
-    public async Task<HttpResponseData> Run(
-        [HttpTrigger(AuthorizationLevel.Anonymous, "post", Route = "generate-sas")] HttpRequestData req)
+    public async Task<IActionResult> Run(
+        [HttpTrigger(AuthorizationLevel.Anonymous, "post", Route = "generate-sas")] HttpRequest req)
     {
         // 1. Authenticate & authorize
-        var (principal, errorResponse) = await AuthorizeAsync(req);
-        if (errorResponse is not null)
-            return errorResponse;
+        var (_, authError) = await AuthorizeAsync(req);
+        if (authError is not null)
+            return authError;
 
         // 2. Parse request body
         GenerateSasRequest? body;
@@ -55,20 +54,18 @@ public sealed class GenerateSasFunction
         }
         catch
         {
-            return await CreateJsonResponse(req, HttpStatusCode.BadRequest,
-                new ErrorResponse("Invalid request body"));
+            return new BadRequestObjectResult(new ErrorResponse("Invalid request body"));
         }
 
         if (body is null || string.IsNullOrWhiteSpace(body.Filename) || string.IsNullOrWhiteSpace(body.ContentType))
         {
-            return await CreateJsonResponse(req, HttpStatusCode.BadRequest,
-                new ErrorResponse("Missing filename or contentType"));
+            return new BadRequestObjectResult(new ErrorResponse("Missing filename or contentType"));
         }
 
         // 3. Validate content type
         if (!AllowedContentTypes.Contains(body.ContentType))
         {
-            return await CreateJsonResponse(req, HttpStatusCode.BadRequest,
+            return new BadRequestObjectResult(
                 new ErrorResponse($"Content type '{body.ContentType}' is not allowed. " +
                                   $"Allowed: {string.Join(", ", AllowedContentTypes)}"));
         }
@@ -79,53 +76,29 @@ public sealed class GenerateSasFunction
         _logger.LogInformation("Generated upload SAS for blob {BlobName} (original: {Filename})",
             blobName, body.Filename);
 
-        return await CreateJsonResponse(req, HttpStatusCode.OK,
-            new GenerateSasResponse(sasUrl, blobName, ExpiresInSeconds: 600));
+        return new OkObjectResult(new GenerateSasResponse(sasUrl, blobName, ExpiresInSeconds: 600));
     }
 
     // ----- Helpers -----
 
-    private async Task<(System.Security.Claims.ClaimsPrincipal? principal, HttpResponseData? error)>
-        AuthorizeAsync(HttpRequestData req)
+    private async Task<(ClaimsPrincipal? principal, IActionResult? error)> AuthorizeAsync(HttpRequest req)
     {
         var token = _jwtService.ExtractBearerToken(
-            req.Headers.TryGetValues("Authorization", out var values)
-                ? values.FirstOrDefault()
-                : null);
+            req.Headers.Authorization.FirstOrDefault());
 
         if (token is null)
-        {
-            var resp = await CreateJsonResponse(req, HttpStatusCode.Unauthorized,
-                new ErrorResponse("No token provided"));
-            return (null, resp);
-        }
+            return (null, new UnauthorizedObjectResult(new ErrorResponse("No token provided")));
 
         var principal = await _jwtService.ValidateTokenAsync(token);
         if (principal is null)
-        {
-            var resp = await CreateJsonResponse(req, HttpStatusCode.Unauthorized,
-                new ErrorResponse("Invalid token"));
-            return (null, resp);
-        }
+            return (null, new UnauthorizedObjectResult(new ErrorResponse("Invalid token")));
 
         var oid = principal.FindFirst("oid")?.Value
                   ?? principal.FindFirst("http://schemas.microsoft.com/identity/claims/objectidentifier")?.Value;
 
         if (string.IsNullOrEmpty(oid) || !_jwtService.IsAuthorizedUser(oid))
-        {
-            var resp = await CreateJsonResponse(req, HttpStatusCode.Forbidden,
-                new ErrorResponse("User not authorized"));
-            return (null, resp);
-        }
+            return (null, new ObjectResult(new ErrorResponse("User not authorized")) { StatusCode = StatusCodes.Status403Forbidden });
 
         return (principal, null);
-    }
-
-    private static async Task<HttpResponseData> CreateJsonResponse<T>(
-        HttpRequestData req, HttpStatusCode statusCode, T body)
-    {
-        var response = req.CreateResponse(statusCode);
-        await response.WriteAsJsonAsync(body);
-        return response;
     }
 }

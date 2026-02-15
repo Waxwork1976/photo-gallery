@@ -1,6 +1,6 @@
-using System.Net;
+using Microsoft.AspNetCore.Http;
+using Microsoft.AspNetCore.Mvc;
 using Microsoft.Azure.Functions.Worker;
-using Microsoft.Azure.Functions.Worker.Http;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using PhotoFunctions.Configuration;
@@ -34,8 +34,8 @@ public sealed class ListImagesFunction
     }
 
     [Function("list-images")]
-    public async Task<HttpResponseData> Run(
-        [HttpTrigger(AuthorizationLevel.Anonymous, "get", Route = "list-images")] HttpRequestData req)
+    public async Task<IActionResult> Run(
+        [HttpTrigger(AuthorizationLevel.Anonymous, "get", Route = "list-images")] HttpRequest req)
     {
         var featuredOnly = string.Equals(
             req.Query["featured"], "true", StringComparison.OrdinalIgnoreCase);
@@ -66,8 +66,6 @@ public sealed class ListImagesFunction
         _logger.LogInformation("Returned {Count} images (featuredOnly={Featured})",
             images.Length, featuredOnly);
 
-        var response = req.CreateResponse(HttpStatusCode.OK);
-        await response.WriteAsJsonAsync(new ListImagesResponse(images));
-        return response;
+        return new OkObjectResult(new ListImagesResponse(images));
     }
 }
