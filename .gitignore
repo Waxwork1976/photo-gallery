@@ -1,0 +1,13 @@
+# Installation scripts (contain secrets)
+InstallationScripts/
+
+# IDE
+.vs/
+.vscode/
+*.user
+*.suo
+.idea/
+
+# OS
+.DS_Store
+Thumbs.db

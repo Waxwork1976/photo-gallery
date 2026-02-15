@@ -1,0 +1,15 @@
+## Build output
+bin/
+obj/
+
+## Local settings (contains secrets)
+local.settings.json
+
+## IDE
+.vs/
+*.user
+*.suo
+.idea/
+
+## Publish
+publish/
