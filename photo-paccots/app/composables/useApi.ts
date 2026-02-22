@@ -4,6 +4,7 @@ import type {
   SaveMetadataRequest,
   SaveMetadataResponse,
 } from '~/types/image'
+import type { PlantNetResponse } from '~/types/plantnet'
 
 interface ApiError {
   message: string
@@ -121,10 +122,50 @@ export const useApi = () => {
     })
   }
 
+  /** Identify a plant from one or more images via the PlantNet pass-through API. */
+  const identifyPlant = async (
+    images: File[],
+    organs?: string[],
+  ): Promise<PlantNetResponse> => {
+    const token = await getAccessToken()
+
+    const formData = new FormData()
+    for (const img of images) {
+      formData.append('images', img)
+    }
+    if (organs) {
+      for (const organ of organs) {
+        formData.append('organs', organ)
+      }
+    }
+
+    const headers: Record<string, string> = {}
+    if (token) {
+      headers['Authorization'] = `Bearer ${token}`
+    }
+
+    const response = await fetch(`${baseUrl}/api/identify-plant`, {
+      method: 'POST',
+      headers,
+      body: formData,
+    })
+
+    if (!response.ok) {
+      const error: ApiError = {
+        message: `API error: ${response.statusText}`,
+        statusCode: response.status,
+      }
+      throw error
+    }
+
+    return response.json() as Promise<PlantNetResponse>
+  }
+
   return {
     listImages,
     generateSasUrl,
     saveMetadata,
     uploadToBlob,
+    identifyPlant,
   }
 }

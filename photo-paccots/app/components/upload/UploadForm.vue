@@ -4,6 +4,8 @@ const emit = defineEmits<{
 }>()
 
 const { state, uploadImage, reset } = useUpload()
+const api = useApi()
+const { user } = useAuth()
 
 const ALLOWED_TYPES = ['image/jpeg', 'image/png', 'image/webp', 'image/gif']
 const MAX_SIZE_MB = 10
@@ -17,6 +19,11 @@ const description = ref('')
 const tagsInput = ref('')
 const validationError = ref<string | null>(null)
 const uploadSuccess = ref(false)
+
+// Plant identification
+const isIdentifying = ref(false)
+const identifyError = ref<string | null>(null)
+const identificationDone = ref(false)
 
 /** Derive tags array from comma-separated string. */
 const tags = computed(() =>
@@ -32,29 +39,77 @@ const openFilePicker = () => {
   fileInputRef.value?.click()
 }
 
+const formatDateTime = () => {
+  const now = new Date()
+  const pad = (n: number) => n.toString().padStart(2, '0')
+  return `${now.getFullYear()}${pad(now.getMonth() + 1)}${pad(now.getDate())}-${pad(now.getHours())}${pad(now.getMinutes())}`
+}
+
+const identifyPlant = async () => {
+  if (!file.value) return
+
+  isIdentifying.value = true
+  identifyError.value = null
+
+  try {
+    const response = await api.identifyPlant([file.value])
+
+    const topResult = response.results?.[0]
+    if (topResult) {
+      const species = topResult.species
+
+      const commonName = species.commonNames?.[0] ?? species.scientificNameWithoutAuthor
+      const userName = user.value?.name ?? 'unknown'
+      title.value = `${formatDateTime()}-${commonName}-${userName}`
+
+      const descParts = [
+        species.scientificName,
+        `Genre: ${species.genus.scientificNameWithoutAuthor}`,
+        `Famille: ${species.family.scientificNameWithoutAuthor}`,
+      ]
+      if (topResult.score !== undefined) {
+        descParts.push(`Confiance: ${Math.round(topResult.score * 100)}%`)
+      }
+      description.value = descParts.join(' | ')
+
+      tagsInput.value = species.scientificName
+
+      identificationDone.value = true
+    } else {
+      identifyError.value = 'Aucune plante identifiée dans cette image.'
+    }
+  } catch (err: unknown) {
+    const message = err instanceof Error
+      ? err.message
+      : (err as { message?: string })?.message ?? 'Identification échouée'
+    identifyError.value = message
+  } finally {
+    isIdentifying.value = false
+  }
+}
+
 const onFileChange = (e: Event) => {
   const input = e.target as HTMLInputElement
   const selected = input.files?.[0]
   if (!selected) return
 
   validationError.value = null
+  identificationDone.value = false
+  identifyError.value = null
 
-  // Validate type
   if (!ALLOWED_TYPES.includes(selected.type)) {
     validationError.value = `Invalid file type. Allowed: JPEG, PNG, WebP, GIF.`
     return
   }
 
-  // Validate size
   if (selected.size > MAX_SIZE_BYTES) {
     validationError.value = `File too large. Maximum size is ${MAX_SIZE_MB} MB.`
     return
   }
 
   file.value = selected
-  title.value = selected.name.replace(/\.[^/.]+$/, '') // default title = filename without extension
+  title.value = selected.name.replace(/\.[^/.]+$/, '')
 
-  // Create preview URL
   if (preview.value) URL.revokeObjectURL(preview.value)
   preview.value = URL.createObjectURL(selected)
 }
@@ -64,7 +119,6 @@ const onDrop = (e: DragEvent) => {
   const dropped = e.dataTransfer?.files?.[0]
   if (!dropped) return
 
-  // Simulate file input change
   const dt = new DataTransfer()
   dt.items.add(dropped)
   if (fileInputRef.value) {
@@ -79,6 +133,8 @@ const onDragOver = (e: DragEvent) => {
 
 const removeFile = () => {
   file.value = null
+  identificationDone.value = false
+  identifyError.value = null
   if (preview.value) {
     URL.revokeObjectURL(preview.value)
     preview.value = null
@@ -101,7 +157,6 @@ const handleSubmit = async () => {
 
     uploadSuccess.value = true
 
-    // Reset form after short delay so user sees success
     setTimeout(() => {
       removeFile()
       title.value = ''
@@ -179,7 +234,44 @@ onUnmounted(() => {
       {{ validationError }}
     </p>
 
-    <!-- Metadata fields (only shown when a file is selected) -->
+    <!-- Plant identification (shown when a file is selected) -->
+    <div v-if="file && !state.isUploading && !uploadSuccess" class="space-y-3">
+      <button
+        type="button"
+        class="flex w-full items-center justify-center gap-2 rounded-lg border-2 px-4 py-3 text-sm font-semibold transition-colors"
+        :class="identificationDone
+          ? 'border-emerald-500 bg-emerald-50 text-emerald-700'
+          : 'border-stone-200 bg-white text-stone-600 hover:border-emerald-300 hover:bg-emerald-50/50'"
+        :disabled="isIdentifying"
+        @click="identifyPlant"
+      >
+        <template v-if="isIdentifying">
+          <svg class="h-4 w-4 animate-spin" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+            <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4" />
+            <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
+          </svg>
+          Identification en cours...
+        </template>
+        <template v-else>
+          <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M21 21l-5.197-5.197m0 0A7.5 7.5 0 105.196 5.196a7.5 7.5 0 0010.607 10.607z" />
+          </svg>
+          Identifier la plante
+        </template>
+      </button>
+
+      <!-- Identification result -->
+      <div v-if="identificationDone" class="rounded-lg bg-emerald-50 px-4 py-3 text-sm text-emerald-700">
+        Plante identifiée ! Les champs ont été remplis automatiquement.
+      </div>
+
+      <!-- Identification error -->
+      <p v-if="identifyError" class="rounded-lg bg-amber-50 px-4 py-2 text-sm text-amber-700">
+        {{ identifyError }}
+      </p>
+    </div>
+
+    <!-- Metadata fields (shown when a file is selected) -->
     <template v-if="file">
       <div>
         <label for="title" class="block text-sm font-medium text-stone-700">Title</label>
