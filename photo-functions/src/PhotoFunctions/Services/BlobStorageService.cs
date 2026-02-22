@@ -82,4 +82,11 @@ public sealed class BlobStorageService : IBlobStorageService
     {
         return $"{_options.BlobServiceUri}/{_options.PhotoContainerName}/{blobName}";
     }
+
+    /// <inheritdoc />
+    public async Task DeleteBlobAsync(string blobName)
+    {
+        var containerClient = _blobServiceClient.GetBlobContainerClient(_options.PhotoContainerName);
+        await containerClient.DeleteBlobIfExistsAsync(blobName);
+    }
 }

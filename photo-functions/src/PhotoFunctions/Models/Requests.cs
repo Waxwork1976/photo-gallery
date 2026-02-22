@@ -18,3 +18,10 @@ public sealed record SaveMetadataRequest(
     int? Width = null,
     int? Height = null
 );
+
+/// <summary>Request body for updating image metadata.</summary>
+public sealed record UpdateMetadataRequest(
+    string Title,
+    string Description,
+    string[] Tags
+);

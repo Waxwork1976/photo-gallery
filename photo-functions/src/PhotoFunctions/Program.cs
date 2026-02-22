@@ -17,10 +17,15 @@ var host = new HostBuilder()
         services.Configure<AzureAdOptions>(
             configuration.GetSection(AzureAdOptions.SectionName));
 
+        services.Configure<PlantNetOptions>(
+            configuration.GetSection(PlantNetOptions.SectionName));
+
         // ----- Services (singletons — safe because they are stateless / thread-safe) -----
         services.AddSingleton<IJwtValidationService, JwtValidationService>();
         services.AddSingleton<IBlobStorageService, BlobStorageService>();
         services.AddSingleton<IPhotoTableService, PhotoTableService>();
+
+        services.AddHttpClient<IPlantIdentificationService, PlantIdentificationService>();
     })
     .Build();
 

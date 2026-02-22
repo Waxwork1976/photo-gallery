@@ -1,9 +1,13 @@
 import type {
+  DeleteImageResponse,
   GenerateSasResponse,
   ListImagesResponse,
   SaveMetadataRequest,
   SaveMetadataResponse,
+  UpdateMetadataRequest,
+  UpdateMetadataResponse,
 } from '~/types/image'
+import type { PlantNetResponse } from '~/types/plantnet'
 
 interface ApiError {
   message: string
@@ -42,8 +46,15 @@ export const useApi = () => {
     })
 
     if (!response.ok) {
+      let detail = ''
+      try {
+        const body = await response.json()
+        detail = body?.error ?? body?.message ?? JSON.stringify(body)
+      } catch {
+        detail = response.statusText || 'Unknown error'
+      }
       const error: ApiError = {
-        message: `API error: ${response.statusText}`,
+        message: `API error (${response.status}): ${detail}`,
         statusCode: response.status,
       }
       throw error
@@ -121,10 +132,83 @@ export const useApi = () => {
     })
   }
 
+  /** List all images (admin, requires auth). */
+  const listAllImages = async (): Promise<ListImagesResponse> => {
+    return fetchWithAuth<ListImagesResponse>('/api/manage-images')
+  }
+
+  /** Update metadata (title, description, tags) for an image. */
+  const updateMetadata = async (
+    id: string,
+    data: UpdateMetadataRequest,
+  ): Promise<UpdateMetadataResponse> => {
+    return fetchWithAuth<UpdateMetadataResponse>(`/api/update-metadata/${id}`, {
+      method: 'PUT',
+      body: JSON.stringify(data),
+    })
+  }
+
+  /** Delete an image (blob + metadata). */
+  const deleteImage = async (id: string): Promise<DeleteImageResponse> => {
+    return fetchWithAuth<DeleteImageResponse>(`/api/delete-image/${id}`, {
+      method: 'DELETE',
+    })
+  }
+
+  /** Identify a plant from one or more images via the PlantNet pass-through API. */
+  const identifyPlant = async (
+    images: File[],
+    organs?: string[],
+  ): Promise<PlantNetResponse> => {
+    const token = await getAccessToken()
+
+    const formData = new FormData()
+    for (const img of images) {
+      formData.append('images', img)
+    }
+    if (organs) {
+      for (const organ of organs) {
+        formData.append('organs', organ)
+      }
+    }
+
+    const headers: Record<string, string> = {}
+    if (token) {
+      headers['Authorization'] = `Bearer ${token}`
+    }
+
+    const response = await fetch(`${baseUrl}/api/identify-plant`, {
+      method: 'POST',
+      headers,
+      body: formData,
+    })
+
+    if (!response.ok) {
+      let detail = ''
+      try {
+        const body = await response.json()
+        detail = body?.error ?? body?.message ?? JSON.stringify(body)
+      } catch {
+        detail = response.statusText || 'Unknown error'
+      }
+      const error: ApiError = {
+        message: `API error (${response.status}): ${detail}`,
+        statusCode: response.status,
+      }
+      throw error
+    }
+
+    return response.json() as Promise<PlantNetResponse>
+  }
+
   return {
     listImages,
+    listAllImages,
     generateSasUrl,
     saveMetadata,
+    updateMetadata,
+    deleteImage,
     uploadToBlob,
+    identifyPlant,
   }
 }

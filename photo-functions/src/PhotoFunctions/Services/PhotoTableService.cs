@@ -73,6 +73,24 @@ public sealed class PhotoTableService : IPhotoTableService
     }
 
     /// <inheritdoc />
+    public async Task<IReadOnlyList<PhotoEntity>> ListAllAsync()
+    {
+        string filter = $"PartitionKey eq '{DefaultPartitionKey}'";
+
+        var entities = new List<PhotoEntity>();
+        await foreach (var entity in _tableClient.QueryAsync<PhotoEntity>(filter))
+        {
+            entities.Add(entity);
+        }
+
+        entities.Sort((a, b) =>
+            string.Compare(b.UploadedAt, a.UploadedAt, StringComparison.Ordinal));
+
+        _logger.LogInformation("Listed all {Count} photo entities (admin)", entities.Count);
+        return entities;
+    }
+
+    /// <inheritdoc />
     public async Task<PhotoEntity?> GetAsync(string rowKey)
     {
         try
@@ -84,5 +102,20 @@ public sealed class PhotoTableService : IPhotoTableService
         {
             return null;
         }
+    }
+
+    /// <inheritdoc />
+    public async Task<PhotoEntity> UpdateAsync(PhotoEntity entity)
+    {
+        await _tableClient.UpdateEntityAsync(entity, entity.ETag, TableUpdateMode.Merge);
+        _logger.LogInformation("Updated photo entity {RowKey}", entity.RowKey);
+        return entity;
+    }
+
+    /// <inheritdoc />
+    public async Task DeleteAsync(string rowKey)
+    {
+        await _tableClient.DeleteEntityAsync(DefaultPartitionKey, rowKey);
+        _logger.LogInformation("Deleted photo entity {RowKey}", rowKey);
     }
 }
