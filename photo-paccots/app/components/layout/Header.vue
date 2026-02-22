@@ -29,6 +29,14 @@ const mobileMenuOpen = ref(false)
           Upload
         </NuxtLink>
 
+        <NuxtLink
+          v-if="isAuthenticated"
+          to="/manage"
+          class="text-sm font-medium text-stone-600 hover:text-emerald-700 transition-colors"
+        >
+          Manage
+        </NuxtLink>
+
         <!-- Auth button -->
         <template v-if="isAuthenticated">
           <span class="text-xs text-stone-400">{{ user?.name }}</span>
@@ -75,6 +83,9 @@ const mobileMenuOpen = ref(false)
         </NuxtLink>
         <NuxtLink v-if="isAuthenticated" to="/upload" class="block rounded-md px-3 py-2 text-sm font-medium text-stone-700 hover:bg-stone-100" @click="mobileMenuOpen = false">
           Upload
+        </NuxtLink>
+        <NuxtLink v-if="isAuthenticated" to="/manage" class="block rounded-md px-3 py-2 text-sm font-medium text-stone-700 hover:bg-stone-100" @click="mobileMenuOpen = false">
+          Manage
         </NuxtLink>
 
         <div class="mt-2 border-t border-stone-100 pt-2">

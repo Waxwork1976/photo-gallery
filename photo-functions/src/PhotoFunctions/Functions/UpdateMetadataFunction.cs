@@ -1,0 +1,92 @@
+using System.Security.Claims;
+using Microsoft.AspNetCore.Http;
+using Microsoft.AspNetCore.Mvc;
+using Microsoft.Azure.Functions.Worker;
+using Microsoft.Extensions.Logging;
+using PhotoFunctions.Models;
+using PhotoFunctions.Services;
+
+namespace PhotoFunctions.Functions;
+
+/// <summary>
+/// PUT /api/update-metadata/{id}
+/// Updates title, description and tags of an existing photo.
+/// Protected: requires a valid JWT from an authorized user.
+/// </summary>
+public sealed class UpdateMetadataFunction
+{
+    private readonly IJwtValidationService _jwtService;
+    private readonly IPhotoTableService _tableService;
+    private readonly ILogger<UpdateMetadataFunction> _logger;
+
+    public UpdateMetadataFunction(
+        IJwtValidationService jwtService,
+        IPhotoTableService tableService,
+        ILogger<UpdateMetadataFunction> logger)
+    {
+        _jwtService = jwtService;
+        _tableService = tableService;
+        _logger = logger;
+    }
+
+    [Function("update-metadata")]
+    public async Task<IActionResult> Run(
+        [HttpTrigger(AuthorizationLevel.Anonymous, "put", Route = "update-metadata/{id}")] HttpRequest req,
+        string id)
+    {
+        var (_, authError) = await AuthorizeAsync(req);
+        if (authError is not null)
+            return authError;
+
+        if (string.IsNullOrWhiteSpace(id))
+            return new BadRequestObjectResult(new ErrorResponse("Missing image id"));
+
+        var entity = await _tableService.GetAsync(id);
+        if (entity is null)
+            return new NotFoundObjectResult(new ErrorResponse("Image not found"));
+
+        UpdateMetadataRequest? body;
+        try
+        {
+            body = await req.ReadFromJsonAsync<UpdateMetadataRequest>();
+        }
+        catch
+        {
+            return new BadRequestObjectResult(new ErrorResponse("Invalid request body"));
+        }
+
+        if (body is null)
+            return new BadRequestObjectResult(new ErrorResponse("Request body is required"));
+
+        entity.Title = body.Title;
+        entity.Description = body.Description;
+        entity.Tags = string.Join(",", body.Tags ?? []);
+
+        await _tableService.UpdateAsync(entity);
+
+        _logger.LogInformation("Updated metadata for photo {RowKey}", id);
+
+        return new OkObjectResult(new { success = true, id });
+    }
+
+    private async Task<(ClaimsPrincipal? principal, IActionResult? error)> AuthorizeAsync(HttpRequest req)
+    {
+        var token = _jwtService.ExtractBearerToken(
+            req.Headers.Authorization.FirstOrDefault());
+
+        if (token is null)
+            return (null, new UnauthorizedObjectResult(new ErrorResponse("No token provided")));
+
+        var principal = await _jwtService.ValidateTokenAsync(token);
+        if (principal is null)
+            return (null, new UnauthorizedObjectResult(new ErrorResponse("Invalid token")));
+
+        var oid = principal.FindFirst("oid")?.Value
+                  ?? principal.FindFirst("http://schemas.microsoft.com/identity/claims/objectidentifier")?.Value;
+
+        if (string.IsNullOrEmpty(oid) || !_jwtService.IsAuthorizedUser(oid))
+            return (null, new ObjectResult(new ErrorResponse("User not authorized")) { StatusCode = StatusCodes.Status403Forbidden });
+
+        return (principal, null);
+    }
+}

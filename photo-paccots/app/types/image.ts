@@ -44,3 +44,22 @@ export interface SaveMetadataRequest {
   width?: number
   height?: number
 }
+
+/** Request body for PUT /api/update-metadata/{id} */
+export interface UpdateMetadataRequest {
+  title: string
+  description: string
+  tags: string[]
+}
+
+/** Response from PUT /api/update-metadata/{id} */
+export interface UpdateMetadataResponse {
+  success: boolean
+  id: string
+}
+
+/** Response from DELETE /api/delete-image/{id} */
+export interface DeleteImageResponse {
+  success: boolean
+  id: string
+}

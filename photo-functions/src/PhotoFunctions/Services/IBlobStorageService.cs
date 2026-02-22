@@ -17,4 +17,9 @@ public interface IBlobStorageService
     /// Returns the public URL for a blob (no SAS token).
     /// </summary>
     string GetPublicBlobUrl(string blobName);
+
+    /// <summary>
+    /// Deletes a blob from the photo container.
+    /// </summary>
+    Task DeleteBlobAsync(string blobName);
 }

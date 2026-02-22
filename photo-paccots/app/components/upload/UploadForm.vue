@@ -64,11 +64,11 @@ const identifyPlant = async () => {
 
       const descParts = [
         species.scientificName,
-        `Genre: ${species.genus.scientificNameWithoutAuthor}`,
-        `Famille: ${species.family.scientificNameWithoutAuthor}`,
+        `Genus: ${species.genus.scientificNameWithoutAuthor}`,
+        `Family: ${species.family.scientificNameWithoutAuthor}`,
       ]
       if (topResult.score !== undefined) {
-        descParts.push(`Confiance: ${Math.round(topResult.score * 100)}%`)
+        descParts.push(`Confidence: ${Math.round(topResult.score * 100)}%`)
       }
       description.value = descParts.join(' | ')
 
@@ -76,12 +76,12 @@ const identifyPlant = async () => {
 
       identificationDone.value = true
     } else {
-      identifyError.value = 'Aucune plante identifiée dans cette image.'
+      identifyError.value = 'No plant identified in this image.'
     }
   } catch (err: unknown) {
     const message = err instanceof Error
       ? err.message
-      : (err as { message?: string })?.message ?? 'Identification échouée'
+      : (err as { message?: string })?.message ?? 'Identification failed'
     identifyError.value = message
   } finally {
     isIdentifying.value = false
@@ -250,19 +250,19 @@ onUnmounted(() => {
             <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4" />
             <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
           </svg>
-          Identification en cours...
+          Identifying plant...
         </template>
         <template v-else>
           <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5">
             <path stroke-linecap="round" stroke-linejoin="round" d="M21 21l-5.197-5.197m0 0A7.5 7.5 0 105.196 5.196a7.5 7.5 0 0010.607 10.607z" />
           </svg>
-          Identifier la plante
+          Identify plant
         </template>
       </button>
 
       <!-- Identification result -->
       <div v-if="identificationDone" class="rounded-lg bg-emerald-50 px-4 py-3 text-sm text-emerald-700">
-        Plante identifiée ! Les champs ont été remplis automatiquement.
+        Plant identified! Fields have been filled automatically.
       </div>
 
       <!-- Identification error -->
