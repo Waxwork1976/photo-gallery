@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import type { ImageDto, UpdateMetadataRequest } from '~/types/image'
+import type { FolderTreeNodeDto, ImageDto, ManageFolderTreeRequest, UpdateMetadataRequest } from '~/types/image'
 
 definePageMeta({
   middleware: 'auth',
@@ -14,6 +14,16 @@ const api = useApi()
 const images = ref<ImageDto[]>([])
 const loading = ref(true)
 const error = ref<string | null>(null)
+
+// Folder tree management
+const folderPathsInput = ref('photos')
+const tagRulesInput = ref('')
+const folderTreeLoading = ref(true)
+const folderTreeSaving = ref(false)
+const folderTreeError = ref<string | null>(null)
+const folderTreeSuccess = ref<string | null>(null)
+const selectedFolderPreviewPath = ref<string | null>(null)
+const recomputeRunning = ref(false)
 
 // Editing state
 const editingId = ref<string | null>(null)
@@ -39,6 +49,196 @@ const fetchImages = async () => {
     loading.value = false
   }
 }
+
+const formatTagRules = (rules: Record<string, string>) => {
+  return Object.entries(rules)
+    .sort(([a], [b]) => a.localeCompare(b))
+    .map(([tag, path]) => `${tag}=${path}`)
+    .join('\n')
+}
+
+const parseTagRules = (raw: string): Record<string, string> => {
+  const output: Record<string, string> = {}
+  for (const line of raw.split('\n')) {
+    const trimmed = line.trim()
+    if (!trimmed) continue
+    const idx = trimmed.indexOf('=')
+    if (idx <= 0) continue
+    const key = trimmed.slice(0, idx).trim()
+    const value = trimmed.slice(idx + 1).trim()
+    if (!key || !value) continue
+    output[key] = value
+  }
+  return output
+}
+
+const fetchFolderTree = async () => {
+  folderTreeLoading.value = true
+  folderTreeError.value = null
+  folderTreeSuccess.value = null
+  try {
+    const data = await api.getManageFolderTree()
+    folderPathsInput.value = (data.folderPaths?.length ? data.folderPaths : ['photos']).join('\n')
+    tagRulesInput.value = formatTagRules(data.tagRules || {})
+  } catch (err: unknown) {
+    const detail = (err as { message?: string })?.message ?? ''
+    folderTreeError.value = `Failed to load folder structure. ${detail}`
+  } finally {
+    folderTreeLoading.value = false
+  }
+}
+
+const saveFolderTree = async () => {
+  folderTreeSaving.value = true
+  folderTreeError.value = null
+  folderTreeSuccess.value = null
+  try {
+    const payload: ManageFolderTreeRequest = {
+      folderPaths: folderPathsInput.value
+        .split('\n')
+        .map((x) => x.trim())
+        .filter(Boolean),
+      tagRules: parseTagRules(tagRulesInput.value),
+    }
+    const saved = await api.updateManageFolderTree(payload)
+    folderPathsInput.value = (saved.folderPaths?.length ? saved.folderPaths : ['photos']).join('\n')
+    tagRulesInput.value = formatTagRules(saved.tagRules || {})
+    folderTreeSuccess.value = 'Folder structure saved.'
+  } catch (err: unknown) {
+    const detail = (err as { message?: string })?.message ?? ''
+    folderTreeError.value = `Failed to save folder structure. ${detail}`
+  } finally {
+    folderTreeSaving.value = false
+  }
+}
+
+const sanitizeFolderSegment = (value: string) => {
+  const ascii = value
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .toLowerCase()
+    .trim()
+  const cleaned = ascii
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-+|-+$/g, '')
+  return cleaned || 'tag'
+}
+
+const generateFoldersFromTags = () => {
+  folderTreeError.value = null
+  folderTreeSuccess.value = null
+
+  const imagesWithTags = images.value
+    .map((img) => (img.tags ?? []).map((tag) => tag.trim()).filter(Boolean))
+    .filter((tags) => tags.length > 0)
+
+  if (imagesWithTags.length === 0) {
+    folderTreeError.value = 'No tags available to generate folder structure.'
+    return
+  }
+
+  const folderPaths = new Set<string>(['photos'])
+  const rules: Record<string, string> = {}
+
+  for (const tags of imagesWithTags) {
+    let currentPath = 'photos'
+    const usedSiblings = new Set<string>()
+
+    for (const tag of tags) {
+      const base = sanitizeFolderSegment(tag)
+      let segment = base
+      let i = 2
+
+      // Avoid duplicate sibling segments for repeated tags in same chain.
+      while (usedSiblings.has(segment)) {
+        segment = `${base}-${i}`
+        i++
+      }
+      usedSiblings.add(segment)
+
+      currentPath = `${currentPath}/${segment}`
+      folderPaths.add(currentPath)
+
+      // Keep first inferred taxonomy path for a given tag.
+      if (!rules[tag]) {
+        rules[tag] = currentPath
+      }
+    }
+  }
+
+  folderPathsInput.value = Array.from(folderPaths).sort((a, b) => a.localeCompare(b)).join('\n')
+  tagRulesInput.value = formatTagRules(rules)
+  folderTreeSuccess.value = 'Suggested hierarchical folder structure generated from current image tags. Review and click "Save folders" to persist.'
+}
+
+const recomputeAllFolderAssignments = async () => {
+  recomputeRunning.value = true
+  folderTreeError.value = null
+  folderTreeSuccess.value = null
+  try {
+    const result = await api.recomputeFolderAssignments()
+    folderTreeSuccess.value = `Recomputed folder assignments for ${result.updated}/${result.total} images.`
+    await fetchImages()
+  } catch (err: unknown) {
+    const detail = (err as { message?: string })?.message ?? ''
+    folderTreeError.value = `Failed to recompute folder assignments. ${detail}`
+  } finally {
+    recomputeRunning.value = false
+  }
+}
+
+const buildTreeFromPaths = (paths: string[]): FolderTreeNodeDto[] => {
+  type MutableNode = {
+    name: string
+    path: string
+    children: Record<string, MutableNode>
+  }
+
+  const root: MutableNode = { name: 'photos', path: 'photos', children: {} }
+  const normalized = new Set<string>(['photos'])
+  for (const raw of paths) {
+    const cleaned = raw.trim().replaceAll('\\', '/')
+    if (!cleaned) continue
+    const segments = cleaned.split('/').filter(Boolean)
+    const path = segments[0] === 'photos' ? segments.join('/') : `photos/${segments.join('/')}`
+    normalized.add(path)
+  }
+
+  for (const path of normalized) {
+    const segments = path.split('/').filter(Boolean)
+    if (segments.length <= 1) continue
+    let cursor = root
+    let currentPath = 'photos'
+    for (let i = 1; i < segments.length; i++) {
+      const seg = segments[i]
+      if (!seg) continue
+      currentPath = `${currentPath}/${seg}`
+      if (!cursor.children[seg]) {
+        cursor.children[seg] = { name: seg, path: currentPath, children: {} }
+      }
+      cursor = cursor.children[seg]
+    }
+  }
+
+  const toDto = (node: MutableNode): FolderTreeNodeDto => ({
+    name: node.name,
+    path: node.path,
+    children: Object.values(node.children)
+      .sort((a, b) => a.name.localeCompare(b.name))
+      .map(toDto),
+  })
+
+  return [toDto(root)]
+}
+
+const folderTreePreview = computed(() =>
+  buildTreeFromPaths(
+    folderPathsInput.value
+      .split('\n')
+      .map((x) => x.trim())
+      .filter(Boolean),
+  ),
+)
 
 const startEdit = (img: ImageDto) => {
   editingId.value = img.id
@@ -118,7 +318,10 @@ const formatSize = (bytes: number) => {
   return `${(bytes / (1024 * 1024)).toFixed(1)} MB`
 }
 
-onMounted(fetchImages)
+onMounted(() => {
+  fetchImages()
+  fetchFolderTree()
+})
 </script>
 
 <template>
@@ -139,6 +342,77 @@ onMounted(fetchImages)
       >
         Refresh
       </button>
+    </section>
+
+    <section class="mb-8 rounded-xl border border-stone-200 bg-white p-4 shadow-sm sm:p-6">
+      <div class="mb-4 flex items-center justify-between">
+        <div>
+          <h2 class="text-lg font-semibold text-stone-900">Folder Structure</h2>
+          <p class="text-xs text-stone-500">Root must remain <code>photos</code>. Tag rules map tag to folder path.</p>
+        </div>
+        <div class="flex items-center gap-2">
+          <button
+            class="rounded-lg bg-stone-100 px-3 py-2 text-sm font-medium text-stone-700 hover:bg-stone-200 disabled:opacity-50"
+            :disabled="recomputeRunning || folderTreeLoading"
+            @click="recomputeAllFolderAssignments"
+          >
+            <span v-if="recomputeRunning">Recomputing...</span>
+            <span v-else>Recompute image folders</span>
+          </button>
+          <button
+            class="rounded-lg bg-stone-100 px-3 py-2 text-sm font-medium text-stone-700 hover:bg-stone-200 disabled:opacity-50"
+            :disabled="folderTreeSaving || folderTreeLoading || loading"
+            @click="generateFoldersFromTags"
+          >
+            Generate folders from tags
+          </button>
+          <button
+            class="rounded-lg bg-emerald-600 px-3 py-2 text-sm font-medium text-white hover:bg-emerald-700 disabled:opacity-50"
+            :disabled="folderTreeSaving || folderTreeLoading"
+            @click="saveFolderTree"
+          >
+            <span v-if="folderTreeSaving">Saving...</span>
+            <span v-else>Save folders</span>
+          </button>
+        </div>
+      </div>
+
+      <div v-if="folderTreeLoading" class="text-sm text-stone-500">Loading folder structure...</div>
+      <template v-else>
+        <p v-if="folderTreeError" class="mb-3 rounded-lg bg-red-50 px-3 py-2 text-sm text-red-600">{{ folderTreeError }}</p>
+        <p v-if="folderTreeSuccess" class="mb-3 rounded-lg bg-emerald-50 px-3 py-2 text-sm text-emerald-700">{{ folderTreeSuccess }}</p>
+
+        <div class="grid gap-4 sm:grid-cols-2">
+          <div>
+            <label class="block text-xs font-medium text-stone-600">Folder paths (one per line)</label>
+            <textarea
+              v-model="folderPathsInput"
+              rows="8"
+              class="mt-1 block w-full rounded-md border border-stone-300 px-2 py-1.5 font-mono text-xs shadow-sm focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500"
+              placeholder="photos&#10;photos/garden&#10;photos/garden/flowers"
+            />
+          </div>
+          <div>
+            <label class="block text-xs font-medium text-stone-600">Tag rules (tag=folderPath)</label>
+            <textarea
+              v-model="tagRulesInput"
+              rows="8"
+              class="mt-1 block w-full rounded-md border border-stone-300 px-2 py-1.5 font-mono text-xs shadow-sm focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500"
+              placeholder="rose=photos/garden/flowers&#10;tree=photos/garden/trees"
+            />
+          </div>
+        </div>
+
+        <div class="mt-4">
+          <p class="mb-2 text-xs font-medium text-stone-600">Folder tree preview</p>
+          <GalleryFolderTree
+            :tree="folderTreePreview"
+            :selected-path="selectedFolderPreviewPath"
+            @select="selectedFolderPreviewPath = $event"
+            @clear="selectedFolderPreviewPath = null"
+          />
+        </div>
+      </template>
     </section>
 
     <!-- Loading -->
@@ -203,6 +477,10 @@ onMounted(fetchImages)
                   {{ tag }}
                 </span>
               </div>
+
+              <p class="mt-2 text-xs text-stone-500">
+                Folder: <span class="font-mono">{{ img.primaryFolderPath || 'photos' }}</span>
+              </p>
 
               <div class="mt-auto flex items-center gap-2 pt-3">
                 <span class="text-xs text-stone-400">{{ formatSize(img.sizeBytes) }}</span>

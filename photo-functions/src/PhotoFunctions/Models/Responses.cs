@@ -22,6 +22,8 @@ public sealed record ImageDto(
     string Title,
     string Description,
     string[] Tags,
+    string PrimaryFolderPath,
+    string[] FolderPaths,
     string UploadedAt,
     int Width,
     int Height,
@@ -31,6 +33,24 @@ public sealed record ImageDto(
 
 /// <summary>Response from the list-images endpoint.</summary>
 public sealed record ListImagesResponse(ImageDto[] Images);
+
+public sealed record FolderTreeNodeDto(
+    string Name,
+    string Path,
+    FolderTreeNodeDto[] Children
+);
+
+public sealed record FolderTreeResponse(
+    string Root,
+    Dictionary<string, string> TagRules,
+    FolderTreeNodeDto[] Tree
+);
+
+public sealed record ManageFolderTreeResponse(
+    string Root,
+    string[] FolderPaths,
+    Dictionary<string, string> TagRules
+);
 
 /// <summary>Validated user information extracted from a JWT.</summary>
 public sealed record AuthUserInfo(

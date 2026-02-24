@@ -8,23 +8,18 @@ using PhotoFunctions.Services;
 
 namespace PhotoFunctions.Functions;
 
-/// <summary>
-/// PUT /api/update-metadata/{id}
-/// Updates title, description and tags of an existing photo.
-/// Protected: requires a valid JWT from an authorized user.
-/// </summary>
-public sealed class UpdateMetadataFunction
+public sealed class RecomputeFolderAssignmentsFunction
 {
     private readonly IJwtValidationService _jwtService;
     private readonly IPhotoTableService _tableService;
     private readonly IFolderTreeService _folderTreeService;
-    private readonly ILogger<UpdateMetadataFunction> _logger;
+    private readonly ILogger<RecomputeFolderAssignmentsFunction> _logger;
 
-    public UpdateMetadataFunction(
+    public RecomputeFolderAssignmentsFunction(
         IJwtValidationService jwtService,
         IPhotoTableService tableService,
         IFolderTreeService folderTreeService,
-        ILogger<UpdateMetadataFunction> logger)
+        ILogger<RecomputeFolderAssignmentsFunction> logger)
     {
         _jwtService = jwtService;
         _tableService = tableService;
@@ -32,48 +27,44 @@ public sealed class UpdateMetadataFunction
         _logger = logger;
     }
 
-    [Function("update-metadata")]
+    [Function("recompute-folder-assignments")]
     public async Task<IActionResult> Run(
-        [HttpTrigger(AuthorizationLevel.Anonymous, "put", Route = "update-metadata/{id}")] HttpRequest req,
-        string id)
+        [HttpTrigger(AuthorizationLevel.Anonymous, "post", Route = "recompute-folder-assignments")] HttpRequest req)
     {
         var (_, authError) = await AuthorizeAsync(req);
         if (authError is not null)
             return authError;
 
-        if (string.IsNullOrWhiteSpace(id))
-            return new BadRequestObjectResult(new ErrorResponse("Missing image id"));
+        var document = await _folderTreeService.GetDocumentAsync();
+        var entities = await _tableService.ListAllAsync();
 
-        var entity = await _tableService.GetAsync(id);
-        if (entity is null)
-            return new NotFoundObjectResult(new ErrorResponse("Image not found"));
-
-        UpdateMetadataRequest? body;
-        try
+        var updated = 0;
+        foreach (var entity in entities)
         {
-            body = await req.ReadFromJsonAsync<UpdateMetadataRequest>();
+            var tags = (entity.Tags ?? string.Empty)
+                .Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
+
+            var resolved = _folderTreeService.ResolveFoldersFromTags(tags, document);
+            var nextPrimary = resolved.PrimaryFolderPath;
+            var nextCsv = string.Join(",", resolved.FolderPaths);
+
+            if (entity.PrimaryFolderPath == nextPrimary && entity.FolderPathsCsv == nextCsv)
+                continue;
+
+            entity.PrimaryFolderPath = nextPrimary;
+            entity.FolderPathsCsv = nextCsv;
+            await _tableService.UpdateAsync(entity);
+            updated++;
         }
-        catch
+
+        _logger.LogInformation("Recomputed folder assignments for {Updated}/{Total} images", updated, entities.Count);
+
+        return new OkObjectResult(new
         {
-            return new BadRequestObjectResult(new ErrorResponse("Invalid request body"));
-        }
-
-        if (body is null)
-            return new BadRequestObjectResult(new ErrorResponse("Request body is required"));
-
-        entity.Title = body.Title;
-        entity.Description = body.Description;
-        entity.Tags = string.Join(",", body.Tags ?? []);
-        var folderDoc = await _folderTreeService.GetDocumentAsync();
-        var resolved = _folderTreeService.ResolveFoldersFromTags(body.Tags ?? [], folderDoc);
-        entity.PrimaryFolderPath = resolved.PrimaryFolderPath;
-        entity.FolderPathsCsv = string.Join(",", resolved.FolderPaths);
-
-        await _tableService.UpdateAsync(entity);
-
-        _logger.LogInformation("Updated metadata for photo {RowKey}", id);
-
-        return new OkObjectResult(new { success = true, id });
+            success = true,
+            total = entities.Count,
+            updated,
+        });
     }
 
     private async Task<(ClaimsPrincipal? principal, IActionResult? error)> AuthorizeAsync(HttpRequest req)

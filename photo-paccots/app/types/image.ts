@@ -6,6 +6,8 @@ export interface ImageDto {
   title: string
   description: string
   tags: string[]
+  primaryFolderPath: string
+  folderPaths: string[]
   uploadedAt: string
   width: number
   height: number
@@ -62,4 +64,33 @@ export interface UpdateMetadataResponse {
 export interface DeleteImageResponse {
   success: boolean
   id: string
+}
+
+export interface FolderTreeNodeDto {
+  name: string
+  path: string
+  children: FolderTreeNodeDto[]
+}
+
+export interface FolderTreeResponse {
+  root: string
+  tagRules: Record<string, string>
+  tree: FolderTreeNodeDto[]
+}
+
+export interface ManageFolderTreeResponse {
+  root: string
+  folderPaths: string[]
+  tagRules: Record<string, string>
+}
+
+export interface ManageFolderTreeRequest {
+  folderPaths: string[]
+  tagRules: Record<string, string>
+}
+
+export interface RecomputeFolderAssignmentsResponse {
+  success: boolean
+  total: number
+  updated: number
 }

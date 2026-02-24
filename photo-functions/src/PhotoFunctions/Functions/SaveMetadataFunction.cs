@@ -17,17 +17,20 @@ public sealed class SaveMetadataFunction
     private readonly IJwtValidationService _jwtService;
     private readonly IPhotoTableService _tableService;
     private readonly IBlobStorageService _blobService;
+    private readonly IFolderTreeService _folderTreeService;
     private readonly ILogger<SaveMetadataFunction> _logger;
 
     public SaveMetadataFunction(
         IJwtValidationService jwtService,
         IPhotoTableService tableService,
         IBlobStorageService blobService,
+        IFolderTreeService folderTreeService,
         ILogger<SaveMetadataFunction> logger)
     {
         _jwtService = jwtService;
         _tableService = tableService;
         _blobService = blobService;
+        _folderTreeService = folderTreeService;
         _logger = logger;
     }
 
@@ -62,6 +65,8 @@ public sealed class SaveMetadataFunction
 
         // 3. Build entity
         var blobUrl = _blobService.GetPublicBlobUrl(body.BlobName);
+        var folderDoc = await _folderTreeService.GetDocumentAsync();
+        var resolved = _folderTreeService.ResolveFoldersFromTags(body.Tags ?? [], folderDoc);
 
         var entity = new PhotoEntity
         {
@@ -72,6 +77,8 @@ public sealed class SaveMetadataFunction
             Title = string.IsNullOrWhiteSpace(body.Title) ? body.OriginalFilename : body.Title,
             Description = body.Description ?? string.Empty,
             Tags = body.Tags is { Length: > 0 } ? string.Join(",", body.Tags) : string.Empty,
+            PrimaryFolderPath = resolved.PrimaryFolderPath,
+            FolderPathsCsv = string.Join(",", resolved.FolderPaths),
             UploadedAt = DateTimeOffset.UtcNow.ToString("o"),
             UploadedBy = oid!,
             ContentType = body.ContentType,

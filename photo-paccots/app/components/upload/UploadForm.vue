@@ -72,7 +72,19 @@ const identifyPlant = async () => {
       }
       description.value = descParts.join(' | ')
 
-      tagsInput.value = species.scientificName
+      const orderedTags = [
+        'plant',
+        species.family.scientificNameWithoutAuthor,
+        species.genus.scientificNameWithoutAuthor,
+        species.scientificName,
+      ]
+      const nextTags = new Set<string>()
+      for (const t of orderedTags) {
+        const v = t?.trim()
+        if (v)
+          nextTags.add(v)
+      }
+      tagsInput.value = Array.from(nextTags).join(', ')
 
       identificationDone.value = true
     } else {

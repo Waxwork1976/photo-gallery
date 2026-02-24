@@ -89,4 +89,34 @@ public sealed class BlobStorageService : IBlobStorageService
         var containerClient = _blobServiceClient.GetBlobContainerClient(_options.PhotoContainerName);
         await containerClient.DeleteBlobIfExistsAsync(blobName);
     }
+
+    public async Task<string?> ReadTextBlobAsync(string containerName, string blobName)
+    {
+        var containerClient = _blobServiceClient.GetBlobContainerClient(containerName);
+        var blobClient = containerClient.GetBlobClient(blobName);
+
+        var exists = await blobClient.ExistsAsync();
+        if (!exists.Value)
+            return null;
+
+        var response = await blobClient.DownloadContentAsync();
+        return response.Value.Content.ToString();
+    }
+
+    public async Task WriteTextBlobAsync(string containerName, string blobName, string content, string contentType = "application/json")
+    {
+        var containerClient = _blobServiceClient.GetBlobContainerClient(containerName);
+        await containerClient.CreateIfNotExistsAsync();
+
+        var blobClient = containerClient.GetBlobClient(blobName);
+        var options = new Azure.Storage.Blobs.Models.BlobUploadOptions
+        {
+            HttpHeaders = new Azure.Storage.Blobs.Models.BlobHttpHeaders
+            {
+                ContentType = contentType,
+            },
+        };
+
+        await blobClient.UploadAsync(BinaryData.FromString(content), options);
+    }
 }
