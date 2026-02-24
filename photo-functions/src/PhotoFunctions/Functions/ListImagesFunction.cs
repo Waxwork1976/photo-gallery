@@ -56,6 +56,8 @@ public sealed class ListImagesFunction
                 Title: e.Title,
                 Description: e.Description,
                 Tags: e.Tags.Split(',', StringSplitOptions.RemoveEmptyEntries),
+                PrimaryFolderPath: string.IsNullOrWhiteSpace(e.PrimaryFolderPath) ? "photos" : e.PrimaryFolderPath,
+                FolderPaths: string.IsNullOrWhiteSpace(e.FolderPathsCsv) ? ["photos"] : e.FolderPathsCsv.Split(',', StringSplitOptions.RemoveEmptyEntries),
                 UploadedAt: e.UploadedAt,
                 Width: e.Width,
                 Height: e.Height,

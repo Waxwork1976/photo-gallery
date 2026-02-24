@@ -27,6 +27,8 @@ public sealed class PhotoEntity : ITableEntity
 
     /// <summary>Comma-separated tags (Table Storage has no native array type).</summary>
     public string Tags { get; set; } = string.Empty;
+    public string PrimaryFolderPath { get; set; } = "photos";
+    public string FolderPathsCsv { get; set; } = "photos";
 
     // ----- System metadata -----
     public string UploadedAt { get; set; } = DateTimeOffset.UtcNow.ToString("o");

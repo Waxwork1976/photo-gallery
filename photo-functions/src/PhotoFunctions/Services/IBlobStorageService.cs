@@ -22,4 +22,7 @@ public interface IBlobStorageService
     /// Deletes a blob from the photo container.
     /// </summary>
     Task DeleteBlobAsync(string blobName);
+
+    Task<string?> ReadTextBlobAsync(string containerName, string blobName);
+    Task WriteTextBlobAsync(string containerName, string blobName, string content, string contentType = "application/json");
 }

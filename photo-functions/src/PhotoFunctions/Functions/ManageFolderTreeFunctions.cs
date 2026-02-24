@@ -2,56 +2,51 @@ using System.Security.Claims;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Azure.Functions.Worker;
-using Microsoft.Extensions.Logging;
 using PhotoFunctions.Models;
 using PhotoFunctions.Services;
 
 namespace PhotoFunctions.Functions;
 
-/// <summary>
-/// PUT /api/update-metadata/{id}
-/// Updates title, description and tags of an existing photo.
-/// Protected: requires a valid JWT from an authorized user.
-/// </summary>
-public sealed class UpdateMetadataFunction
+public sealed class ManageFolderTreeFunctions
 {
     private readonly IJwtValidationService _jwtService;
-    private readonly IPhotoTableService _tableService;
     private readonly IFolderTreeService _folderTreeService;
-    private readonly ILogger<UpdateMetadataFunction> _logger;
 
-    public UpdateMetadataFunction(
+    public ManageFolderTreeFunctions(
         IJwtValidationService jwtService,
-        IPhotoTableService tableService,
-        IFolderTreeService folderTreeService,
-        ILogger<UpdateMetadataFunction> logger)
+        IFolderTreeService folderTreeService)
     {
         _jwtService = jwtService;
-        _tableService = tableService;
         _folderTreeService = folderTreeService;
-        _logger = logger;
     }
 
-    [Function("update-metadata")]
-    public async Task<IActionResult> Run(
-        [HttpTrigger(AuthorizationLevel.Anonymous, "put", Route = "update-metadata/{id}")] HttpRequest req,
-        string id)
+    [Function("manage-folder-tree-get")]
+    public async Task<IActionResult> Get(
+        [HttpTrigger(AuthorizationLevel.Anonymous, "get", Route = "manage-folder-tree")] HttpRequest req)
     {
         var (_, authError) = await AuthorizeAsync(req);
         if (authError is not null)
             return authError;
 
-        if (string.IsNullOrWhiteSpace(id))
-            return new BadRequestObjectResult(new ErrorResponse("Missing image id"));
+        var document = await _folderTreeService.GetDocumentAsync();
+        return new OkObjectResult(new ManageFolderTreeResponse(
+            Root: document.Root,
+            FolderPaths: document.FolderPaths.ToArray(),
+            TagRules: document.TagRules));
+    }
 
-        var entity = await _tableService.GetAsync(id);
-        if (entity is null)
-            return new NotFoundObjectResult(new ErrorResponse("Image not found"));
+    [Function("manage-folder-tree-put")]
+    public async Task<IActionResult> Put(
+        [HttpTrigger(AuthorizationLevel.Anonymous, "put", Route = "manage-folder-tree")] HttpRequest req)
+    {
+        var (_, authError) = await AuthorizeAsync(req);
+        if (authError is not null)
+            return authError;
 
-        UpdateMetadataRequest? body;
+        ManageFolderTreeRequest? body;
         try
         {
-            body = await req.ReadFromJsonAsync<UpdateMetadataRequest>();
+            body = await req.ReadFromJsonAsync<ManageFolderTreeRequest>();
         }
         catch
         {
@@ -61,19 +56,19 @@ public sealed class UpdateMetadataFunction
         if (body is null)
             return new BadRequestObjectResult(new ErrorResponse("Request body is required"));
 
-        entity.Title = body.Title;
-        entity.Description = body.Description;
-        entity.Tags = string.Join(",", body.Tags ?? []);
-        var folderDoc = await _folderTreeService.GetDocumentAsync();
-        var resolved = _folderTreeService.ResolveFoldersFromTags(body.Tags ?? [], folderDoc);
-        entity.PrimaryFolderPath = resolved.PrimaryFolderPath;
-        entity.FolderPathsCsv = string.Join(",", resolved.FolderPaths);
+        var document = new FolderTreeDocument
+        {
+            Root = "photos",
+            FolderPaths = body.FolderPaths?.ToList() ?? ["photos"],
+            TagRules = body.TagRules ?? new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase),
+        };
 
-        await _tableService.UpdateAsync(entity);
-
-        _logger.LogInformation("Updated metadata for photo {RowKey}", id);
-
-        return new OkObjectResult(new { success = true, id });
+        await _folderTreeService.SaveDocumentAsync(document);
+        var persisted = await _folderTreeService.GetDocumentAsync();
+        return new OkObjectResult(new ManageFolderTreeResponse(
+            Root: persisted.Root,
+            FolderPaths: persisted.FolderPaths.ToArray(),
+            TagRules: persisted.TagRules));
     }
 
     private async Task<(ClaimsPrincipal? principal, IActionResult? error)> AuthorizeAsync(HttpRequest req)

@@ -25,3 +25,8 @@ public sealed record UpdateMetadataRequest(
     string Description,
     string[] Tags
 );
+
+public sealed record ManageFolderTreeRequest(
+    string[] FolderPaths,
+    Dictionary<string, string> TagRules
+);

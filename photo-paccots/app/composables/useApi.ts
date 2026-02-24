@@ -1,7 +1,10 @@
 import type {
   DeleteImageResponse,
+  FolderTreeResponse,
   GenerateSasResponse,
   ListImagesResponse,
+  ManageFolderTreeRequest,
+  ManageFolderTreeResponse,
   SaveMetadataRequest,
   SaveMetadataResponse,
   UpdateMetadataRequest,
@@ -71,6 +74,10 @@ export const useApi = () => {
     return fetchWithAuth<ListImagesResponse>(`/api/list-images${query}`)
   }
 
+  const getFolderTree = async (): Promise<FolderTreeResponse> => {
+    return fetchWithAuth<FolderTreeResponse>('/api/folder-tree')
+  }
+
   // ---- Protected endpoints ----
 
   /** Request a SAS upload URL for a given file. */
@@ -135,6 +142,19 @@ export const useApi = () => {
   /** List all images (admin, requires auth). */
   const listAllImages = async (): Promise<ListImagesResponse> => {
     return fetchWithAuth<ListImagesResponse>('/api/manage-images')
+  }
+
+  const getManageFolderTree = async (): Promise<ManageFolderTreeResponse> => {
+    return fetchWithAuth<ManageFolderTreeResponse>('/api/manage-folder-tree')
+  }
+
+  const updateManageFolderTree = async (
+    data: ManageFolderTreeRequest,
+  ): Promise<ManageFolderTreeResponse> => {
+    return fetchWithAuth<ManageFolderTreeResponse>('/api/manage-folder-tree', {
+      method: 'PUT',
+      body: JSON.stringify(data),
+    })
   }
 
   /** Update metadata (title, description, tags) for an image. */
@@ -203,7 +223,10 @@ export const useApi = () => {
 
   return {
     listImages,
+    getFolderTree,
     listAllImages,
+    getManageFolderTree,
+    updateManageFolderTree,
     generateSasUrl,
     saveMetadata,
     updateMetadata,
