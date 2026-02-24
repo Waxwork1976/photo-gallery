@@ -65,7 +65,7 @@ watch(
           </div>
 
           <img
-            :src="image.url"
+            :src="image.fullUrl"
             :alt="image.title || 'Photo'"
             class="max-h-[80vh] rounded-lg object-contain shadow-2xl transition-opacity duration-300"
             :class="imageLoaded ? 'opacity-100' : 'opacity-0 absolute'"

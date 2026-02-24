@@ -445,7 +445,7 @@ onMounted(() => {
           <!-- Thumbnail -->
           <div class="sm:w-40 sm:flex-shrink-0">
             <img
-              :src="img.url"
+              :src="img.thumbnailUrl"
               :alt="img.title"
               class="h-40 w-full object-cover sm:h-full"
             >
@@ -477,6 +477,7 @@ onMounted(() => {
                   {{ tag }}
                 </span>
               </div>
+ull
 
               <p class="mt-2 text-xs text-stone-500">
                 Folder: <span class="font-mono">{{ img.primaryFolderPath || 'photos' }}</span>

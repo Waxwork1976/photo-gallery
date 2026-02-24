@@ -2,7 +2,8 @@
 export interface ImageDto {
   id: string
   blobName: string
-  url: string
+  fullUrl: string
+  thumbnailUrl: string
   title: string
   description: string
   tags: string[]
@@ -31,7 +32,8 @@ export interface GenerateSasResponse {
 export interface SaveMetadataResponse {
   success: boolean
   id: string
-  blobUrl: string
+  fullUrl: string
+  thumbnailUrl: string
 }
 
 /** Request body for POST /api/save-metadata */

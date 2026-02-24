@@ -63,8 +63,9 @@ public sealed class SaveMetadataFunction
                 new ErrorResponse("Missing required fields: blobName, originalFilename, contentType"));
         }
 
-        // 3. Build entity
-        var blobUrl = _blobService.GetPublicBlobUrl(body.BlobName);
+        // 3. Create lightweight thumbnail and build entity
+        var fullUrl = _blobService.GetPublicBlobUrl(body.BlobName);
+        var thumbnail = await _blobService.CreateThumbnailAsync(body.BlobName, body.ContentType);
         var folderDoc = await _folderTreeService.GetDocumentAsync();
         var resolved = _folderTreeService.ResolveFoldersFromTags(body.Tags ?? [], folderDoc);
 
@@ -72,7 +73,9 @@ public sealed class SaveMetadataFunction
         {
             RowKey = Guid.NewGuid().ToString(),
             BlobName = body.BlobName,
-            BlobUrl = blobUrl,
+            BlobUrl = fullUrl,
+            ThumbnailBlobName = thumbnail.BlobName,
+            ThumbnailBlobUrl = thumbnail.Url,
             OriginalFilename = body.OriginalFilename,
             Title = string.IsNullOrWhiteSpace(body.Title) ? body.OriginalFilename : body.Title,
             Description = body.Description ?? string.Empty,
@@ -83,8 +86,8 @@ public sealed class SaveMetadataFunction
             UploadedBy = oid!,
             ContentType = body.ContentType,
             SizeBytes = body.SizeBytes,
-            Width = body.Width ?? 0,
-            Height = body.Height ?? 0,
+            Width = body.Width ?? thumbnail.Width,
+            Height = body.Height ?? thumbnail.Height,
             IsPublic = true,
             Featured = false,
             SortOrder = 0,
@@ -96,7 +99,7 @@ public sealed class SaveMetadataFunction
         _logger.LogInformation("Saved metadata for blob {BlobName} as entity {RowKey}",
             body.BlobName, inserted.RowKey);
 
-        return new ObjectResult(new SaveMetadataResponse(true, inserted.RowKey, blobUrl))
+        return new ObjectResult(new SaveMetadataResponse(true, inserted.RowKey, fullUrl, thumbnail.Url))
         {
             StatusCode = StatusCodes.Status201Created
         };

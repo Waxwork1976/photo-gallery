@@ -11,14 +11,16 @@ public sealed record GenerateSasResponse(
 public sealed record SaveMetadataResponse(
     bool Success,
     string Id,
-    string BlobUrl
+    string FullUrl,
+    string ThumbnailUrl
 );
 
 /// <summary>A single image in the list-images response.</summary>
 public sealed record ImageDto(
     string Id,
     string BlobName,
-    string Url,
+    string FullUrl,
+    string ThumbnailUrl,
     string Title,
     string Description,
     string[] Tags,
