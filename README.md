@@ -64,6 +64,88 @@ PhotoPaccots/
 | Function App | `wax-photogallery-api` | API (consumption plan) |
 | App Registration | `PhotoGallery` | OAuth authentication |
 
+## Required Services
+
+To run the full application (gallery + upload + plant/bird identification), these services are required.
+
+### 1) Microsoft Azure
+
+- **Azure Subscription**: hosts all cloud resources.
+- **Resource Group**: container for all resources (example: `rg-photo-gallery`).
+- **Storage Account (StorageV2)**:
+  - Static website hosting for Nuxt output (`$web`)
+  - Blob container for images (`photos`)
+  - Blob container for folder structure data (`folder-structure`)
+  - Table Storage for metadata (`photos`)
+- **Function App (Linux/Windows, .NET 8 isolated, v4)**:
+  - API endpoints for listing/upload/auth/identification
+- **Microsoft Entra ID App Registration**:
+  - SPA login for frontend
+  - JWT validation for protected function endpoints
+
+### 2) External APIs
+
+- **PlantNet API** (required for plant identification)
+  - Create/register a PlantNet API key.
+  - Configure key in Function App setting: `PlantNet__ApiKey`.
+
+- **RapidAPI Bird Classifier API** (required for bird identification)
+  - Create a RapidAPI account.
+  - Subscribe to the `bird-classifier.p.rapidapi.com` API plan (free/paid plan as needed).
+  - Generate or copy your RapidAPI key from that subscribed account.
+  - Configure in Function App settings:
+    - `BirdApi__ApiKey`
+    - `BirdApi__Host` (expected: `bird-classifier.p.rapidapi.com`)
+    - `BirdApi__BaseUrl` (expected: `https://bird-classifier.p.rapidapi.com`)
+    - `BirdApi__Path` (expected: `/BirdClassifier/prediction`)
+    - `BirdApi__ResultsCount` (example: `5`)
+    - `BirdApi__MinProbability` (example: `0.5`)
+
+#### External API registration checklist
+
+1. PlantNet key created and active.
+2. RapidAPI account created.
+3. RapidAPI subscription for bird classifier is active.
+4. `PlantNet__ApiKey` and `BirdApi__ApiKey` are set in Function App settings.
+5. Function App restarted after setting/rotating API keys.
+
+### 3) Required Function App Settings
+
+At minimum, set all of the following on Azure Function App:
+
+- `AzureStorage__AccountName`
+- `AzureStorage__AccountKey`
+- `AzureStorage__PhotoContainerName`
+- `AzureStorage__PhotoTableName`
+- `AzureStorage__UsePrivateContainer`
+- `AzureAd__TenantId`
+- `AzureAd__ClientId`
+- `AzureAd__AllowedUserOids`
+- `PlantNet__ApiKey`
+- `BirdApi__ApiKey`
+- `BirdApi__Host`
+- `BirdApi__BaseUrl`
+- `BirdApi__Path`
+- `BirdApi__ResultsCount`
+- `BirdApi__MinProbability`
+
+### 4) Required Frontend Environment Variables
+
+Set these in `photo-paccots/.env` (local) and `.env.production` (deployment):
+
+- `NUXT_PUBLIC_AZURE_CLIENT_ID`
+- `NUXT_PUBLIC_AZURE_TENANT_ID`
+- `NUXT_PUBLIC_AZURE_REDIRECT_URI`
+- `NUXT_PUBLIC_API_BASE_URL`
+
+### 5) Local Tooling
+
+- Node.js 18+
+- npm
+- .NET 8 SDK
+- Azure CLI
+- Azure Functions Core Tools v4
+
 ## Local Development
 
 ### Front-end
