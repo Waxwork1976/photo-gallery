@@ -19,6 +19,8 @@ var host = new HostBuilder()
 
         services.Configure<PlantNetOptions>(
             configuration.GetSection(PlantNetOptions.SectionName));
+        services.Configure<BirdApiOptions>(
+            configuration.GetSection(BirdApiOptions.SectionName));
 
         // ----- Services (singletons — safe because they are stateless / thread-safe) -----
         services.AddSingleton<IJwtValidationService, JwtValidationService>();
@@ -27,6 +29,7 @@ var host = new HostBuilder()
         services.AddSingleton<IFolderTreeService, FolderTreeService>();
 
         services.AddHttpClient<IPlantIdentificationService, PlantIdentificationService>();
+        services.AddHttpClient<IBirdIdentificationService, BirdIdentificationService>();
     })
     .Build();
 
