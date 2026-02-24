@@ -327,14 +327,23 @@ onMounted(() => {
           <h2 class="text-lg font-semibold text-stone-900">Folder Structure</h2>
           <p class="text-xs text-stone-500">Root must remain <code>photos</code>. Tag rules map tag to folder path.</p>
         </div>
-        <button
-          class="rounded-lg bg-emerald-600 px-3 py-2 text-sm font-medium text-white hover:bg-emerald-700 disabled:opacity-50"
-          :disabled="folderTreeSaving || folderTreeLoading"
-          @click="saveFolderTree"
-        >
-          <span v-if="folderTreeSaving">Saving...</span>
-          <span v-else>Save folders</span>
-        </button>
+        <div class="flex items-center gap-2">
+          <button
+            class="rounded-lg bg-stone-100 px-3 py-2 text-sm font-medium text-stone-700 hover:bg-stone-200 disabled:opacity-50"
+            :disabled="folderTreeSaving || folderTreeLoading || loading"
+            @click="generateFoldersFromTags"
+          >
+            Generate folders from tags
+          </button>
+          <button
+            class="rounded-lg bg-emerald-600 px-3 py-2 text-sm font-medium text-white hover:bg-emerald-700 disabled:opacity-50"
+            :disabled="folderTreeSaving || folderTreeLoading"
+            @click="saveFolderTree"
+          >
+            <span v-if="folderTreeSaving">Saving...</span>
+            <span v-else>Save folders</span>
+          </button>
+        </div>
       </div>
 
       <div v-if="folderTreeLoading" class="text-sm text-stone-500">Loading folder structure...</div>
