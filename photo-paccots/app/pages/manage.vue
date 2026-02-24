@@ -111,6 +111,59 @@ const saveFolderTree = async () => {
   }
 }
 
+const sanitizeFolderSegment = (value: string) => {
+  const ascii = value
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .toLowerCase()
+    .trim()
+  const cleaned = ascii
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-+|-+$/g, '')
+  return cleaned || 'tag'
+}
+
+const generateFoldersFromTags = () => {
+  folderTreeError.value = null
+  folderTreeSuccess.value = null
+
+  const allTags = new Set<string>()
+  for (const img of images.value) {
+    for (const tag of img.tags ?? []) {
+      const trimmed = tag.trim()
+      if (trimmed)
+        allTags.add(trimmed)
+    }
+  }
+
+  if (allTags.size === 0) {
+    folderTreeError.value = 'No tags available to generate folder structure.'
+    return
+  }
+
+  const folderPaths = new Set<string>(['photos'])
+  const rules: Record<string, string> = {}
+  const usedPaths = new Set<string>()
+
+  const sortedTags = Array.from(allTags).sort((a, b) => a.localeCompare(b))
+  for (const tag of sortedTags) {
+    const base = sanitizeFolderSegment(tag)
+    let path = `photos/${base}`
+    let i = 2
+    while (usedPaths.has(path)) {
+      path = `photos/${base}-${i}`
+      i++
+    }
+    usedPaths.add(path)
+    folderPaths.add(path)
+    rules[tag] = path
+  }
+
+  folderPathsInput.value = Array.from(folderPaths).sort((a, b) => a.localeCompare(b)).join('\n')
+  tagRulesInput.value = formatTagRules(rules)
+  folderTreeSuccess.value = 'Suggested folder structure generated from current image tags. Review and click "Save folders" to persist.'
+}
+
 const buildTreeFromPaths = (paths: string[]): FolderTreeNodeDto[] => {
   type MutableNode = {
     name: string
