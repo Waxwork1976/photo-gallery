@@ -171,7 +171,7 @@ onMounted(fetchImages)
           <!-- Thumbnail -->
           <div class="sm:w-40 sm:flex-shrink-0">
             <img
-              :src="img.url"
+              :src="img.thumbnailUrl"
               :alt="img.title"
               class="h-40 w-full object-cover sm:h-full"
             >
@@ -203,6 +203,7 @@ onMounted(fetchImages)
                   {{ tag }}
                 </span>
               </div>
+ull
 
               <div class="mt-auto flex items-center gap-2 pt-3">
                 <span class="text-xs text-stone-400">{{ formatSize(img.sizeBytes) }}</span>

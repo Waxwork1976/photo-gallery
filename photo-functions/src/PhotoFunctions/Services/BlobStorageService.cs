@@ -1,8 +1,12 @@
 using Azure.Storage;
 using Azure.Storage.Blobs;
+using Azure.Storage.Blobs.Models;
 using Azure.Storage.Sas;
 using Microsoft.Extensions.Options;
 using PhotoFunctions.Configuration;
+using SixLabors.ImageSharp;
+using SixLabors.ImageSharp.Formats.Jpeg;
+using SixLabors.ImageSharp.Processing;
 
 namespace PhotoFunctions.Services;
 
@@ -11,6 +15,9 @@ namespace PhotoFunctions.Services;
 /// </summary>
 public sealed class BlobStorageService : IBlobStorageService
 {
+    private const int ThumbnailMaxWidth = 1200;
+    private const int ThumbnailJpegQuality = 72;
+
     private readonly AzureStorageOptions _options;
     private readonly StorageSharedKeyCredential _credential;
     private readonly BlobServiceClient _blobServiceClient;
@@ -88,5 +95,57 @@ public sealed class BlobStorageService : IBlobStorageService
     {
         var containerClient = _blobServiceClient.GetBlobContainerClient(_options.PhotoContainerName);
         await containerClient.DeleteBlobIfExistsAsync(blobName);
+    }
+
+    /// <inheritdoc />
+    public async Task<IBlobStorageService.ThumbnailResult> CreateThumbnailAsync(string sourceBlobName, string contentType)
+    {
+        var containerClient = _blobServiceClient.GetBlobContainerClient(_options.PhotoContainerName);
+        var sourceBlobClient = containerClient.GetBlobClient(sourceBlobName);
+        var thumbnailBlobName = BuildThumbnailBlobName(sourceBlobName);
+        var thumbnailBlobClient = containerClient.GetBlobClient(thumbnailBlobName);
+
+        await using var sourceBuffer = new MemoryStream();
+        await sourceBlobClient.DownloadToAsync(sourceBuffer);
+        sourceBuffer.Position = 0;
+
+        using var image = await Image.LoadAsync(sourceBuffer);
+        image.Mutate(ctx => ctx.Resize(new ResizeOptions
+        {
+            Mode = ResizeMode.Max,
+            Size = new Size(ThumbnailMaxWidth, ThumbnailMaxWidth)
+        }));
+
+        await using var thumbnailBuffer = new MemoryStream();
+        var jpegEncoder = new JpegEncoder
+        {
+            Quality = ThumbnailJpegQuality
+        };
+        await image.SaveAsync(thumbnailBuffer, jpegEncoder);
+        var thumbnailSizeBytes = thumbnailBuffer.Length;
+        thumbnailBuffer.Position = 0;
+
+        await thumbnailBlobClient.UploadAsync(
+            thumbnailBuffer,
+            new BlobUploadOptions
+            {
+                HttpHeaders = new BlobHttpHeaders
+                {
+                    ContentType = "image/jpeg"
+                }
+            });
+
+        return new IBlobStorageService.ThumbnailResult(
+            BlobName: thumbnailBlobName,
+            Url: GetPublicBlobUrl(thumbnailBlobName),
+            Width: image.Width,
+            Height: image.Height,
+            SizeBytes: thumbnailSizeBytes);
+    }
+
+    private static string BuildThumbnailBlobName(string sourceBlobName)
+    {
+        var filename = Path.GetFileNameWithoutExtension(sourceBlobName);
+        return $"{filename}-thumb.jpg";
     }
 }

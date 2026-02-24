@@ -34,7 +34,7 @@ const formattedSize = computed(() => {
       />
 
       <img
-        :src="image.url"
+        :src="image.thumbnailUrl"
         :alt="image.title || 'Gallery photo'"
         :width="image.width || undefined"
         :height="image.height || undefined"

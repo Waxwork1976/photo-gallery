@@ -49,14 +49,19 @@ public sealed class ListAllImagesFunction
 
         var images = entities.Select(e =>
         {
-            var url = _storageOptions.UsePrivateContainer
+            var fullUrl = _storageOptions.UsePrivateContainer
                 ? _blobService.GenerateReadSasUrl(e.BlobName, TimeSpan.FromHours(1))
                 : _blobService.GetPublicBlobUrl(e.BlobName);
+            var thumbnailBlobName = string.IsNullOrWhiteSpace(e.ThumbnailBlobName) ? e.BlobName : e.ThumbnailBlobName;
+            var thumbnailUrl = _storageOptions.UsePrivateContainer
+                ? _blobService.GenerateReadSasUrl(thumbnailBlobName, TimeSpan.FromHours(1))
+                : _blobService.GetPublicBlobUrl(thumbnailBlobName);
 
             return new ImageDto(
                 Id: e.RowKey,
                 BlobName: e.BlobName,
-                Url: url,
+                FullUrl: fullUrl,
+                ThumbnailUrl: thumbnailUrl,
                 Title: e.Title,
                 Description: e.Description,
                 Tags: e.Tags.Split(',', StringSplitOptions.RemoveEmptyEntries),

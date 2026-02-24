@@ -54,6 +54,12 @@ public sealed class DeleteImageFunction
             _logger.LogInformation("Deleted blob {BlobName} for photo {RowKey}", entity.BlobName, id);
         }
 
+        if (!string.IsNullOrEmpty(entity.ThumbnailBlobName))
+        {
+            await _blobService.DeleteBlobAsync(entity.ThumbnailBlobName);
+            _logger.LogInformation("Deleted thumbnail blob {BlobName} for photo {RowKey}", entity.ThumbnailBlobName, id);
+        }
+
         await _tableService.DeleteAsync(id);
 
         _logger.LogInformation("Deleted photo {RowKey}", id);

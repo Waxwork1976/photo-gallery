@@ -19,6 +19,8 @@ public sealed class PhotoEntity : ITableEntity
     // ----- Blob reference -----
     public string BlobName { get; set; } = string.Empty;
     public string BlobUrl { get; set; } = string.Empty;
+    public string ThumbnailBlobName { get; set; } = string.Empty;
+    public string ThumbnailBlobUrl { get; set; } = string.Empty;
     public string OriginalFilename { get; set; } = string.Empty;
 
     // ----- User-provided metadata -----
