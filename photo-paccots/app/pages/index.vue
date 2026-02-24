@@ -8,6 +8,7 @@ const loading = ref(true)
 const error = ref<string | null>(null)
 const selectedImage = ref<ImageDto | null>(null)
 const folderTree = ref<FolderTreeNodeDto[]>([])
+const folderTagRules = ref<Record<string, string>>({})
 const selectedFolderPath = ref<string | null>(null)
 
 const fetchImages = async () => {
@@ -28,17 +29,27 @@ const fetchFolderTree = async () => {
   try {
     const data = await api.getFolderTree()
     folderTree.value = data.tree
+    folderTagRules.value = data.tagRules || {}
   } catch {
     folderTree.value = []
+    folderTagRules.value = {}
   }
 }
 
 const filteredImages = computed(() => {
   if (!selectedFolderPath.value)
     return images.value
-  return images.value.filter((img) =>
-    img.folderPaths?.includes(selectedFolderPath.value as string)
-    || img.primaryFolderPath === selectedFolderPath.value)
+  const selected = selectedFolderPath.value
+  return images.value.filter((img) => {
+    const mappedFromTags = (img.tags ?? [])
+      .map((tag) => folderTagRules.value[tag])
+      .filter((p): p is string => Boolean(p))
+
+    return img.folderPaths?.some((p) => p === selected || p.startsWith(`${selected}/`))
+      || img.primaryFolderPath === selected
+      || img.primaryFolderPath?.startsWith(`${selected}/`)
+      || mappedFromTags.some((p) => p === selected || p.startsWith(`${selected}/`))
+  })
 })
 
 onMounted(() => {

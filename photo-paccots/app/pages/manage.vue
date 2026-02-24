@@ -23,6 +23,7 @@ const folderTreeSaving = ref(false)
 const folderTreeError = ref<string | null>(null)
 const folderTreeSuccess = ref<string | null>(null)
 const selectedFolderPreviewPath = ref<string | null>(null)
+const recomputeRunning = ref(false)
 
 // Editing state
 const editingId = ref<string | null>(null)
@@ -127,41 +128,63 @@ const generateFoldersFromTags = () => {
   folderTreeError.value = null
   folderTreeSuccess.value = null
 
-  const allTags = new Set<string>()
-  for (const img of images.value) {
-    for (const tag of img.tags ?? []) {
-      const trimmed = tag.trim()
-      if (trimmed)
-        allTags.add(trimmed)
-    }
-  }
+  const imagesWithTags = images.value
+    .map((img) => (img.tags ?? []).map((tag) => tag.trim()).filter(Boolean))
+    .filter((tags) => tags.length > 0)
 
-  if (allTags.size === 0) {
+  if (imagesWithTags.length === 0) {
     folderTreeError.value = 'No tags available to generate folder structure.'
     return
   }
 
   const folderPaths = new Set<string>(['photos'])
   const rules: Record<string, string> = {}
-  const usedPaths = new Set<string>()
 
-  const sortedTags = Array.from(allTags).sort((a, b) => a.localeCompare(b))
-  for (const tag of sortedTags) {
-    const base = sanitizeFolderSegment(tag)
-    let path = `photos/${base}`
-    let i = 2
-    while (usedPaths.has(path)) {
-      path = `photos/${base}-${i}`
-      i++
+  for (const tags of imagesWithTags) {
+    let currentPath = 'photos'
+    const usedSiblings = new Set<string>()
+
+    for (const tag of tags) {
+      const base = sanitizeFolderSegment(tag)
+      let segment = base
+      let i = 2
+
+      // Avoid duplicate sibling segments for repeated tags in same chain.
+      while (usedSiblings.has(segment)) {
+        segment = `${base}-${i}`
+        i++
+      }
+      usedSiblings.add(segment)
+
+      currentPath = `${currentPath}/${segment}`
+      folderPaths.add(currentPath)
+
+      // Keep first inferred taxonomy path for a given tag.
+      if (!rules[tag]) {
+        rules[tag] = currentPath
+      }
     }
-    usedPaths.add(path)
-    folderPaths.add(path)
-    rules[tag] = path
   }
 
   folderPathsInput.value = Array.from(folderPaths).sort((a, b) => a.localeCompare(b)).join('\n')
   tagRulesInput.value = formatTagRules(rules)
-  folderTreeSuccess.value = 'Suggested folder structure generated from current image tags. Review and click "Save folders" to persist.'
+  folderTreeSuccess.value = 'Suggested hierarchical folder structure generated from current image tags. Review and click "Save folders" to persist.'
+}
+
+const recomputeAllFolderAssignments = async () => {
+  recomputeRunning.value = true
+  folderTreeError.value = null
+  folderTreeSuccess.value = null
+  try {
+    const result = await api.recomputeFolderAssignments()
+    folderTreeSuccess.value = `Recomputed folder assignments for ${result.updated}/${result.total} images.`
+    await fetchImages()
+  } catch (err: unknown) {
+    const detail = (err as { message?: string })?.message ?? ''
+    folderTreeError.value = `Failed to recompute folder assignments. ${detail}`
+  } finally {
+    recomputeRunning.value = false
+  }
 }
 
 const buildTreeFromPaths = (paths: string[]): FolderTreeNodeDto[] => {
@@ -328,6 +351,14 @@ onMounted(() => {
           <p class="text-xs text-stone-500">Root must remain <code>photos</code>. Tag rules map tag to folder path.</p>
         </div>
         <div class="flex items-center gap-2">
+          <button
+            class="rounded-lg bg-stone-100 px-3 py-2 text-sm font-medium text-stone-700 hover:bg-stone-200 disabled:opacity-50"
+            :disabled="recomputeRunning || folderTreeLoading"
+            @click="recomputeAllFolderAssignments"
+          >
+            <span v-if="recomputeRunning">Recomputing...</span>
+            <span v-else>Recompute image folders</span>
+          </button>
           <button
             class="rounded-lg bg-stone-100 px-3 py-2 text-sm font-medium text-stone-700 hover:bg-stone-200 disabled:opacity-50"
             :disabled="folderTreeSaving || folderTreeLoading || loading"

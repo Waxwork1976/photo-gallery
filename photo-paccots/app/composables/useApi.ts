@@ -5,6 +5,7 @@ import type {
   ListImagesResponse,
   ManageFolderTreeRequest,
   ManageFolderTreeResponse,
+  RecomputeFolderAssignmentsResponse,
   SaveMetadataRequest,
   SaveMetadataResponse,
   UpdateMetadataRequest,
@@ -157,6 +158,13 @@ export const useApi = () => {
     })
   }
 
+  const recomputeFolderAssignments = async (): Promise<RecomputeFolderAssignmentsResponse> => {
+    return fetchWithAuth<RecomputeFolderAssignmentsResponse>('/api/recompute-folder-assignments', {
+      method: 'POST',
+      body: JSON.stringify({}),
+    })
+  }
+
   /** Update metadata (title, description, tags) for an image. */
   const updateMetadata = async (
     id: string,
@@ -227,6 +235,7 @@ export const useApi = () => {
     listAllImages,
     getManageFolderTree,
     updateManageFolderTree,
+    recomputeFolderAssignments,
     generateSasUrl,
     saveMetadata,
     updateMetadata,

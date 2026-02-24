@@ -88,3 +88,9 @@ export interface ManageFolderTreeRequest {
   folderPaths: string[]
   tagRules: Record<string, string>
 }
+
+export interface RecomputeFolderAssignmentsResponse {
+  success: boolean
+  total: number
+  updated: number
+}
