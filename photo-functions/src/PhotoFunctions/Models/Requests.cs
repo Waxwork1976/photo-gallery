@@ -50,3 +50,8 @@ public sealed record TranslateSingleTranslationRequest(
     string[]? TargetLocales,
     Dictionary<string, Dictionary<string, string>> Locales
 );
+
+public sealed record ManageSlideshowSettingsRequest(
+    int PhotoCount,
+    int IntervalSeconds
+);

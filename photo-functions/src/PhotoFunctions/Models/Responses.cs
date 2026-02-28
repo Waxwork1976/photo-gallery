@@ -62,6 +62,11 @@ public sealed record TranslationsResponse(
     Dictionary<string, Dictionary<string, string>> Locales
 );
 
+public sealed record SlideshowSettingsResponse(
+    int PhotoCount,
+    int IntervalSeconds
+);
+
 /// <summary>Validated user information extracted from a JWT.</summary>
 public sealed record AuthUserInfo(
     string Oid,

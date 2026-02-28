@@ -3,11 +3,13 @@ import type {
   FolderTreeResponse,
   GenerateSasResponse,
   ListImagesResponse,
+  ManageSlideshowSettingsRequest,
   ManageFolderTreeRequest,
   ManageFolderTreeResponse,
   RecomputeFolderAssignmentsResponse,
   SaveMetadataRequest,
   SaveMetadataResponse,
+  SlideshowSettingsDto,
   UpdateMetadataRequest,
   UpdateMetadataResponse,
 } from '~/types/image'
@@ -88,6 +90,10 @@ export const useApi = () => {
 
   const getTranslations = async (): Promise<TranslationsResponse> => {
     return fetchWithAuth<TranslationsResponse>('/api/translations')
+  }
+
+  const getSlideshowSettings = async (): Promise<SlideshowSettingsDto> => {
+    return fetchWithAuth<SlideshowSettingsDto>('/api/slideshow-settings')
   }
 
   // ---- Protected endpoints ----
@@ -207,6 +213,19 @@ export const useApi = () => {
     })
   }
 
+  const getManageSlideshowSettings = async (): Promise<SlideshowSettingsDto> => {
+    return fetchWithAuth<SlideshowSettingsDto>('/api/manage-slideshow-settings')
+  }
+
+  const updateManageSlideshowSettings = async (
+    data: ManageSlideshowSettingsRequest,
+  ): Promise<SlideshowSettingsDto> => {
+    return fetchWithAuth<SlideshowSettingsDto>('/api/manage-slideshow-settings', {
+      method: 'PUT',
+      body: JSON.stringify(data),
+    })
+  }
+
   /** Update metadata (title, description, tags) for an image. */
   const updateMetadata = async (
     id: string,
@@ -313,6 +332,7 @@ export const useApi = () => {
     listImages,
     getFolderTree,
     getTranslations,
+    getSlideshowSettings,
     listAllImages,
     getManageFolderTree,
     updateManageFolderTree,
@@ -321,6 +341,8 @@ export const useApi = () => {
     updateManageTranslations,
     translateAllManageTranslations,
     translateKeyManageTranslations,
+    getManageSlideshowSettings,
+    updateManageSlideshowSettings,
     generateSasUrl,
     saveMetadata,
     updateMetadata,
