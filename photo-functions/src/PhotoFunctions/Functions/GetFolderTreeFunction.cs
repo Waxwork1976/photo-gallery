@@ -23,6 +23,7 @@ public sealed class GetFolderTreeFunction
         var response = new FolderTreeResponse(
             Root: document.Root,
             TagRules: document.TagRules,
+            RootLabels: document.RootLabels,
             Tree: _folderTreeService.BuildTree(document));
         return new OkObjectResult(response);
     }

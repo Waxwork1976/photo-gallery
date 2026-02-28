@@ -11,6 +11,7 @@ const error = ref<string | null>(null)
 const selectedImage = ref<ImageDto | null>(null)
 const folderTree = ref<FolderTreeNodeDto[]>([])
 const folderTagRules = ref<Record<string, string>>({})
+const folderRootLabels = ref<Record<string, string>>({})
 const selectedFolderPath = ref<string | null>(null)
 
 const fetchImages = async () => {
@@ -32,9 +33,11 @@ const fetchFolderTree = async () => {
     const data = await api.getFolderTree()
     folderTree.value = data.tree
     folderTagRules.value = data.tagRules || {}
+    folderRootLabels.value = data.rootLabels || {}
   } catch {
     folderTree.value = []
     folderTagRules.value = {}
+    folderRootLabels.value = {}
   }
 }
 
@@ -90,6 +93,7 @@ useHead({
     <section class="mb-8 grid gap-6 lg:grid-cols-[260px_1fr]">
       <GalleryFolderTree
         :tree="folderTree"
+        :root-labels="folderRootLabels"
         :selected-path="selectedFolderPath"
         @select="selectedFolderPath = $event"
         @clear="selectedFolderPath = null"

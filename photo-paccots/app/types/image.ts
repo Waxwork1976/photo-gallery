@@ -81,6 +81,7 @@ export interface FolderTreeNodeDto {
 export interface FolderTreeResponse {
   root: string
   tagRules: Record<string, string>
+  rootLabels: Record<string, string>
   tree: FolderTreeNodeDto[]
 }
 
@@ -88,11 +89,13 @@ export interface ManageFolderTreeResponse {
   root: string
   folderPaths: string[]
   tagRules: Record<string, string>
+  rootLabels: Record<string, string>
 }
 
 export interface ManageFolderTreeRequest {
   folderPaths: string[]
   tagRules: Record<string, string>
+  rootLabels?: Record<string, string>
 }
 
 export interface RecomputeFolderAssignmentsResponse {

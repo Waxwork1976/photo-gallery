@@ -47,13 +47,15 @@ public sealed record FolderTreeNodeDto(
 public sealed record FolderTreeResponse(
     string Root,
     Dictionary<string, string> TagRules,
+    Dictionary<string, string> RootLabels,
     FolderTreeNodeDto[] Tree
 );
 
 public sealed record ManageFolderTreeResponse(
     string Root,
     string[] FolderPaths,
-    Dictionary<string, string> TagRules
+    Dictionary<string, string> TagRules,
+    Dictionary<string, string> RootLabels
 );
 
 public sealed record TranslationsResponse(

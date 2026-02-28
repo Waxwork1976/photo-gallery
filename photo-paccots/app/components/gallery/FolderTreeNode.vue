@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import type { FolderTreeNodeDto } from '~/types/image'
+import { useTranslations } from '~/composables/useTranslations'
 
 defineOptions({
   name: 'GalleryFolderTreeNode',
@@ -7,6 +8,7 @@ defineOptions({
 
 const props = defineProps<{
   node: FolderTreeNodeDto
+  rootLabels: Record<string, string>
   selectedPath: string | null
 }>()
 
@@ -14,9 +16,30 @@ const emit = defineEmits<{
   select: [path: string]
 }>()
 
+const { t } = useTranslations()
+
 const isSelected = computed(() => props.selectedPath === props.node.path)
 const hasChildren = computed(() => (props.node.children?.length ?? 0) > 0)
 const isExpanded = ref(false)
+
+const humanizeSegment = (value: string) => value
+  .replace(/[-_]+/g, ' ')
+  .replace(/\s+/g, ' ')
+  .trim()
+  .replace(/^\w/, c => c.toUpperCase())
+
+const localizedLabel = computed(() => {
+  const key = props.rootLabels?.[props.node.path]
+  if (key) {
+    const translated = t(key)
+    if (translated !== key) {
+      return translated
+    }
+  }
+
+  const humanized = humanizeSegment(props.node.name)
+  return humanized || props.node.name
+})
 </script>
 
 <template>
@@ -49,7 +72,7 @@ const isExpanded = ref(false)
         :class="isSelected ? 'bg-emerald-100 text-emerald-800' : 'text-stone-600 hover:bg-stone-100'"
         @click="emit('select', node.path)"
       >
-        {{ node.name }}
+        {{ localizedLabel }}
       </button>
     </div>
 
@@ -58,6 +81,7 @@ const isExpanded = ref(false)
         v-for="child in node.children"
         :key="child.path"
         :node="child"
+        :root-labels="rootLabels"
         :selected-path="selectedPath"
         @select="emit('select', $event)"
       />

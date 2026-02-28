@@ -32,7 +32,8 @@ public sealed class ManageFolderTreeFunctions
         return new OkObjectResult(new ManageFolderTreeResponse(
             Root: document.Root,
             FolderPaths: document.FolderPaths.ToArray(),
-            TagRules: document.TagRules));
+            TagRules: document.TagRules,
+            RootLabels: document.RootLabels));
     }
 
     [Function("manage-folder-tree-put")]
@@ -61,6 +62,7 @@ public sealed class ManageFolderTreeFunctions
             Root = "photos",
             FolderPaths = body.FolderPaths?.ToList() ?? ["photos"],
             TagRules = body.TagRules ?? new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase),
+            RootLabels = body.RootLabels ?? new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase),
         };
 
         await _folderTreeService.SaveDocumentAsync(document);
@@ -68,7 +70,8 @@ public sealed class ManageFolderTreeFunctions
         return new OkObjectResult(new ManageFolderTreeResponse(
             Root: persisted.Root,
             FolderPaths: persisted.FolderPaths.ToArray(),
-            TagRules: persisted.TagRules));
+            TagRules: persisted.TagRules,
+            RootLabels: persisted.RootLabels));
     }
 
     private async Task<(ClaimsPrincipal? principal, IActionResult? error)> AuthorizeAsync(HttpRequest req)

@@ -412,6 +412,7 @@ onMounted(() => {
           <p class="mb-2 text-xs font-medium text-stone-600">Folder tree preview</p>
           <GalleryFolderTree
             :tree="folderTreePreview"
+            :root-labels="{}"
             :selected-path="selectedFolderPreviewPath"
             @select="selectedFolderPreviewPath = $event"
             @clear="selectedFolderPreviewPath = null"

@@ -15,6 +15,11 @@ const defaultEn: TranslationDictionary = {
   'gallery.subtitle': 'A curated collection of nature and garden photography',
   'gallery.retry': 'Retry',
   'gallery.loadError': 'Failed to load images',
+  'folders.title': 'Folders',
+  'folders.clear': 'Clear',
+  'folders.root.photos': 'Photos',
+  'folders.root.plants': 'Plants',
+  'folders.root.birds': 'Birds',
 
   'upload.page.title': 'Upload a Photo',
   'upload.page.subtitle': 'Select an image, add some details, and share it with the gallery.',
