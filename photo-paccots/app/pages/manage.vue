@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { PhotoIcon } from '@heroicons/vue/24/outline'
 import type { FolderTreeNodeDto, ImageDto, ManageFolderTreeRequest, UpdateMetadataRequest } from '~/types/image'
 import ManageSubmenu from '~/components/manage/ManageSubmenu.vue'
 import { useTranslations } from '~/composables/useTranslations'
@@ -341,7 +342,7 @@ onMounted(() => {
         </p>
       </div>
       <button
-        class="rounded-lg bg-stone-100 px-3 py-2 text-sm font-medium text-stone-700 hover:bg-stone-200 transition-colors"
+        class="btn-secondary"
         :disabled="loading"
         @click="fetchImages"
       >
@@ -349,7 +350,7 @@ onMounted(() => {
       </button>
     </section>
 
-    <section class="mb-8 rounded-xl border border-stone-200 bg-white p-4 shadow-sm sm:p-6">
+    <section class="ui-card mb-8 p-4 sm:p-6">
       <div class="mb-4 flex items-center justify-between">
         <div>
           <h2 class="text-lg font-semibold text-stone-900">{{ t('manage.folderStructure') }}</h2>
@@ -357,7 +358,7 @@ onMounted(() => {
         </div>
         <div class="flex items-center gap-2">
           <button
-            class="rounded-lg bg-stone-100 px-3 py-2 text-sm font-medium text-stone-700 hover:bg-stone-200 disabled:opacity-50"
+            class="btn-secondary"
             :disabled="recomputeRunning || folderTreeLoading"
             @click="recomputeAllFolderAssignments"
           >
@@ -365,14 +366,14 @@ onMounted(() => {
             <span v-else>{{ t('manage.recompute') }}</span>
           </button>
           <button
-            class="rounded-lg bg-stone-100 px-3 py-2 text-sm font-medium text-stone-700 hover:bg-stone-200 disabled:opacity-50"
+            class="btn-secondary"
             :disabled="folderTreeSaving || folderTreeLoading || loading"
             @click="generateFoldersFromTags"
           >
             {{ t('manage.generateFolders') }}
           </button>
           <button
-            class="rounded-lg bg-emerald-600 px-3 py-2 text-sm font-medium text-white hover:bg-emerald-700 disabled:opacity-50"
+            class="btn-primary"
             :disabled="folderTreeSaving || folderTreeLoading"
             @click="saveFolderTree"
           >
@@ -384,8 +385,8 @@ onMounted(() => {
 
       <div v-if="folderTreeLoading" class="text-sm text-stone-500">{{ t('manage.loadingFolders') }}</div>
       <template v-else>
-        <p v-if="folderTreeError" class="mb-3 rounded-lg bg-red-50 px-3 py-2 text-sm text-red-600">{{ folderTreeError }}</p>
-        <p v-if="folderTreeSuccess" class="mb-3 rounded-lg bg-emerald-50 px-3 py-2 text-sm text-emerald-700">{{ folderTreeSuccess }}</p>
+        <p v-if="folderTreeError" class="alert-error">{{ folderTreeError }}</p>
+        <p v-if="folderTreeSuccess" class="alert-success">{{ folderTreeSuccess }}</p>
 
         <div class="grid gap-4 sm:grid-cols-2">
           <div>
@@ -393,7 +394,7 @@ onMounted(() => {
             <textarea
               v-model="folderPathsInput"
               rows="8"
-              class="mt-1 block w-full rounded-md border border-stone-300 px-2 py-1.5 font-mono text-xs shadow-sm focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500"
+              class="ui-input-compact font-mono text-xs"
               placeholder="photos&#10;photos/garden&#10;photos/garden/flowers"
             />
           </div>
@@ -402,7 +403,7 @@ onMounted(() => {
             <textarea
               v-model="tagRulesInput"
               rows="8"
-              class="mt-1 block w-full rounded-md border border-stone-300 px-2 py-1.5 font-mono text-xs shadow-sm focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500"
+              class="ui-input-compact font-mono text-xs"
               placeholder="rose=photos/garden/flowers&#10;tree=photos/garden/trees"
             />
           </div>
@@ -431,12 +432,13 @@ onMounted(() => {
     </div>
 
     <!-- Error -->
-    <p v-if="error" class="mb-4 rounded-lg bg-red-50 px-4 py-2 text-sm text-red-600">
+    <p v-if="error" class="alert-error">
       {{ error }}
     </p>
 
     <!-- Empty state -->
     <div v-if="!loading && images.length === 0" class="rounded-xl border-2 border-dashed border-stone-300 px-6 py-16 text-center">
+      <PhotoIcon class="mx-auto mb-3 h-12 w-12 text-stone-300" />
       <p class="text-sm text-stone-500">{{ t('manage.empty') }}</p>
     </div>
 
@@ -445,7 +447,7 @@ onMounted(() => {
       <div
         v-for="img in images"
         :key="img.id"
-        class="overflow-hidden rounded-xl border border-stone-200 bg-white shadow-sm transition-shadow hover:shadow-md"
+        class="ui-card ui-transition-soft overflow-hidden hover:shadow-md"
       >
         <div class="flex flex-col sm:flex-row">
           <!-- Thumbnail -->
@@ -465,7 +467,7 @@ onMounted(() => {
                 <h2 class="text-sm font-semibold text-stone-900 line-clamp-1">
                   {{ img.title || '(untitled)' }}
                 </h2>
-                <span class="flex-shrink-0 text-xs text-stone-400">
+                <span class="flex-shrink-0 text-xs text-stone-500">
                   {{ formatDate(img.uploadedAt) }}
                 </span>
               </div>
@@ -478,30 +480,29 @@ onMounted(() => {
                 <span
                   v-for="tag in img.tags"
                   :key="tag"
-                  class="rounded-full bg-emerald-50 px-2 py-0.5 text-xs font-medium text-emerald-700"
+                  class="chip-accent"
                 >
                   {{ tag }}
                 </span>
               </div>
-ull
 
               <p class="mt-2 text-xs text-stone-500">
                 Folder: <span class="font-mono">{{ img.primaryFolderPath || 'photos' }}</span>
               </p>
 
               <div class="mt-auto flex items-center gap-2 pt-3">
-                <span class="text-xs text-stone-400">{{ formatSize(img.sizeBytes) }}</span>
-                <span class="text-xs text-stone-300">|</span>
-                <span class="text-xs text-stone-400">{{ img.width }}×{{ img.height }}</span>
+                <span class="text-xs text-stone-500">{{ formatSize(img.sizeBytes) }}</span>
+                <span class="text-xs text-stone-400">|</span>
+                <span class="text-xs text-stone-500">{{ img.width }}×{{ img.height }}</span>
                 <div class="ml-auto flex gap-2">
                   <button
-                    class="rounded-md bg-stone-100 px-3 py-1 text-xs font-medium text-stone-600 hover:bg-stone-200 transition-colors"
+                    class="btn-secondary rounded-md px-3 py-1 text-xs"
                     @click="startEdit(img)"
                   >
                     {{ t('manage.edit') }}
                   </button>
                   <button
-                    class="rounded-md bg-red-50 px-3 py-1 text-xs font-medium text-red-600 hover:bg-red-100 transition-colors"
+                    class="btn-subtle-danger rounded-md px-3 py-1 text-xs"
                     @click="confirmDelete(img.id)"
                   >
                     {{ t('manage.delete') }}
@@ -518,7 +519,7 @@ ull
                   <input
                     v-model="editTitle"
                     type="text"
-                    class="mt-1 block w-full rounded-md border border-stone-300 px-2 py-1.5 text-sm shadow-sm focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500"
+                    class="ui-input-compact"
                   >
                 </div>
                 <div>
@@ -526,7 +527,7 @@ ull
                   <textarea
                     v-model="editDescription"
                     rows="2"
-                    class="mt-1 block w-full rounded-md border border-stone-300 px-2 py-1.5 text-sm shadow-sm focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500"
+                    class="ui-input-compact"
                   />
                 </div>
                 <div>
@@ -534,19 +535,19 @@ ull
                   <input
                     v-model="editTagsInput"
                     type="text"
-                    class="mt-1 block w-full rounded-md border border-stone-300 px-2 py-1.5 text-sm shadow-sm focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500"
+                    class="ui-input-compact"
                   >
                 </div>
                 <div class="flex justify-end gap-2">
                   <button
-                    class="rounded-md bg-stone-100 px-3 py-1.5 text-xs font-medium text-stone-600 hover:bg-stone-200 transition-colors"
+                    class="btn-secondary rounded-md px-3 py-1.5 text-xs"
                     :disabled="saving"
                     @click="cancelEdit"
                   >
                     {{ t('manage.cancel') }}
                   </button>
                   <button
-                    class="rounded-md bg-emerald-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-emerald-700 transition-colors disabled:opacity-50"
+                    class="btn-primary rounded-md px-3 py-1.5 text-xs"
                     :disabled="saving"
                     @click="saveEdit"
                   >
@@ -579,14 +580,14 @@ ull
             </p>
             <div class="mt-6 flex justify-end gap-3">
               <button
-                class="rounded-lg bg-stone-100 px-4 py-2 text-sm font-medium text-stone-700 hover:bg-stone-200 transition-colors"
+                class="btn-secondary px-4 py-2"
                 :disabled="deleting"
                 @click="cancelDelete"
               >
                 {{ t('manage.cancel') }}
               </button>
               <button
-                class="rounded-lg bg-red-600 px-4 py-2 text-sm font-medium text-white hover:bg-red-700 transition-colors disabled:opacity-50"
+                class="btn-danger px-4 py-2"
                 :disabled="deleting"
                 @click="executeDelete"
               >

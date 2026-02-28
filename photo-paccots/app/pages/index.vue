@@ -246,10 +246,10 @@ useHead({
     <!-- Error -->
     <div
       v-if="error"
-      class="mb-8 rounded-lg bg-red-50 px-4 py-3 text-sm text-red-600"
+      class="alert-error mb-8"
     >
       {{ error }}
-      <button class="ml-2 font-medium underline hover:text-red-700" @click="fetchImages">
+      <button class="ui-focus-ring ui-transition-color ml-2 rounded-sm font-medium underline hover:text-red-800" @click="fetchImages">
         {{ t('gallery.retry') }}
       </button>
     </div>

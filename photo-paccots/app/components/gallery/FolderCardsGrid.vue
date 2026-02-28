@@ -25,7 +25,7 @@ const emit = defineEmits<{
         v-for="card in cards"
         :key="card.path"
         type="button"
-        class="overflow-hidden rounded-xl border border-stone-200 bg-white text-left shadow-sm transition hover:shadow-md"
+        class="ui-focus-ring ui-transition-soft overflow-hidden rounded-xl border border-stone-200 bg-white text-left shadow-sm hover:shadow-md"
         @click="emit('select', card.path)"
       >
         <div class="aspect-[4/3] w-full bg-stone-100">
@@ -35,7 +35,7 @@ const emit = defineEmits<{
             :alt="card.label"
             class="h-full w-full object-cover"
           >
-          <div v-else class="flex h-full items-center justify-center text-xs text-stone-400">
+          <div v-else class="flex h-full items-center justify-center text-xs text-stone-500">
             No preview
           </div>
         </div>

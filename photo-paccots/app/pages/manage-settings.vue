@@ -90,14 +90,14 @@ watch(intervalSeconds, (nextInterval) => {
       </p>
     </section>
 
-    <section class="rounded-xl border border-stone-200 bg-white p-4 shadow-sm sm:p-6">
+    <section class="ui-card p-4 sm:p-6">
       <p v-if="loading" class="text-sm text-stone-500">
         {{ t('manage.loading') }}
       </p>
-      <p v-if="error" class="mb-3 rounded-lg bg-red-50 px-3 py-2 text-sm text-red-600">
+      <p v-if="error" class="alert-error">
         {{ error }}
       </p>
-      <p v-if="success" class="mb-3 rounded-lg bg-emerald-50 px-3 py-2 text-sm text-emerald-700">
+      <p v-if="success" class="alert-success">
         {{ success }}
       </p>
 
@@ -108,7 +108,7 @@ watch(intervalSeconds, (nextInterval) => {
             v-model.number="photoCount"
             type="number"
             min="1"
-            class="mt-1 block w-full rounded-md border border-stone-300 px-2 py-1.5 text-sm focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500"
+            class="ui-input-compact"
           >
         </label>
 
@@ -118,7 +118,7 @@ watch(intervalSeconds, (nextInterval) => {
             v-model.number="intervalSeconds"
             type="number"
             min="1"
-            class="mt-1 block w-full rounded-md border border-stone-300 px-2 py-1.5 text-sm focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500"
+            class="ui-input-compact"
           >
         </label>
 
@@ -130,14 +130,14 @@ watch(intervalSeconds, (nextInterval) => {
             min="0"
             step="0.1"
             :max="Math.max(1, intervalSeconds || 1)"
-            class="mt-1 block w-full rounded-md border border-stone-300 px-2 py-1.5 text-sm focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500"
+            class="ui-input-compact"
           >
         </label>
       </div>
 
       <div class="mt-5 flex justify-end">
         <button
-          class="rounded-lg bg-emerald-600 px-3 py-2 text-sm font-medium text-white transition-colors hover:bg-emerald-700 disabled:opacity-50"
+          class="btn-primary"
           :disabled="loading || saving"
           @click="save"
         >

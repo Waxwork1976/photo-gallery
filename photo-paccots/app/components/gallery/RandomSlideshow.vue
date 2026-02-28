@@ -92,6 +92,7 @@ onUnmounted(() => {
 .fade-slide-leave-active {
   transition-property: opacity;
   transition-timing-function: ease-in-out;
+  @apply motion-reduce:transition-none;
 }
 
 .fade-slide-enter-from,
