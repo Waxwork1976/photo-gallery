@@ -1,7 +1,9 @@
 <script setup lang="ts">
 import type { FolderTreeNodeDto, ImageDto } from '~/types/image'
+import { useTranslations } from '~/composables/useTranslations'
 
 const api = useApi()
+const { t } = useTranslations()
 
 const images = ref<ImageDto[]>([])
 const loading = ref(true)
@@ -19,7 +21,7 @@ const fetchImages = async () => {
     const data = await api.listImages()
     images.value = data.images
   } catch (err: unknown) {
-    error.value = err instanceof Error ? err.message : 'Failed to load images'
+    error.value = err instanceof Error ? err.message : t('gallery.loadError')
   } finally {
     loading.value = false
   }
@@ -67,10 +69,10 @@ useHead({
     <!-- Hero -->
     <section class="mb-10 text-center">
       <h1 class="text-3xl font-bold tracking-tight text-stone-900 sm:text-4xl">
-        Nature &amp; Garden Gallery
+        {{ t('gallery.title') }}
       </h1>
       <p class="mt-2 text-base text-stone-500">
-        A curated collection of nature and garden photography
+        {{ t('gallery.subtitle') }}
       </p>
     </section>
 
@@ -81,7 +83,7 @@ useHead({
     >
       {{ error }}
       <button class="ml-2 font-medium underline hover:text-red-700" @click="fetchImages">
-        Retry
+        {{ t('gallery.retry') }}
       </button>
     </div>
 

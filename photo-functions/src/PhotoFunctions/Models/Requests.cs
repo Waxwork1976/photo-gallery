@@ -32,3 +32,20 @@ public sealed record ManageFolderTreeRequest(
     string[] FolderPaths,
     Dictionary<string, string> TagRules
 );
+
+public sealed record ManageTranslationsRequest(
+    Dictionary<string, Dictionary<string, string>> Locales
+);
+
+public sealed record TranslateAllTranslationsRequest(
+    string SourceLocale,
+    string[]? TargetLocales,
+    Dictionary<string, Dictionary<string, string>> Locales
+);
+
+public sealed record TranslateSingleTranslationRequest(
+    string SourceLocale,
+    string Key,
+    string[]? TargetLocales,
+    Dictionary<string, Dictionary<string, string>> Locales
+);

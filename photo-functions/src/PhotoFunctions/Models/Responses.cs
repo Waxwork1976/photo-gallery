@@ -56,6 +56,10 @@ public sealed record ManageFolderTreeResponse(
     Dictionary<string, string> TagRules
 );
 
+public sealed record TranslationsResponse(
+    Dictionary<string, Dictionary<string, string>> Locales
+);
+
 /// <summary>Validated user information extracted from a JWT.</summary>
 public sealed record AuthUserInfo(
     string Oid,

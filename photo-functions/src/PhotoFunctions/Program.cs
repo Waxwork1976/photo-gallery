@@ -21,12 +21,16 @@ var host = new HostBuilder()
             configuration.GetSection(PlantNetOptions.SectionName));
         services.Configure<BirdApiOptions>(
             configuration.GetSection(BirdApiOptions.SectionName));
+        services.Configure<TranslatorOptions>(
+            configuration.GetSection(TranslatorOptions.SectionName));
 
         // ----- Services (singletons — safe because they are stateless / thread-safe) -----
         services.AddSingleton<IJwtValidationService, JwtValidationService>();
         services.AddSingleton<IBlobStorageService, BlobStorageService>();
         services.AddSingleton<IPhotoTableService, PhotoTableService>();
         services.AddSingleton<IFolderTreeService, FolderTreeService>();
+        services.AddSingleton<ITranslationService, TranslationService>();
+        services.AddHttpClient<ITranslatorService, TranslatorService>();
 
         services.AddHttpClient<IPlantIdentificationService, PlantIdentificationService>();
         services.AddHttpClient<IBirdIdentificationService, BirdIdentificationService>();
