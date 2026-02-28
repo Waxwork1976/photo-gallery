@@ -1,9 +1,14 @@
 <script setup lang="ts">
+import { useTranslations } from '~/composables/useTranslations'
+
 const { checkAuth } = useAuth()
+const { initLocale, loadTranslations } = useTranslations()
 
 // Silently restore session on app mount (client-side only)
 onMounted(() => {
   checkAuth()
+  initLocale()
+  loadTranslations()
 })
 </script>
 

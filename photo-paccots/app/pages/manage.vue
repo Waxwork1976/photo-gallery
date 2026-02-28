@@ -1,5 +1,7 @@
 <script setup lang="ts">
 import type { FolderTreeNodeDto, ImageDto, ManageFolderTreeRequest, UpdateMetadataRequest } from '~/types/image'
+import ManageSubmenu from '~/components/manage/ManageSubmenu.vue'
+import { useTranslations } from '~/composables/useTranslations'
 
 definePageMeta({
   middleware: 'auth',
@@ -10,6 +12,7 @@ useHead({
 })
 
 const api = useApi()
+const { t, locale } = useTranslations()
 
 const images = ref<ImageDto[]>([])
 const loading = ref(true)
@@ -44,7 +47,7 @@ const fetchImages = async () => {
     images.value = res.images
   } catch (err: unknown) {
     const detail = (err as { message?: string })?.message ?? ''
-    error.value = `Failed to load images. ${detail}`
+    error.value = `${t('manage.failedLoad')} ${detail}`
   } finally {
     loading.value = false
   }
@@ -270,7 +273,7 @@ const saveEdit = async () => {
     }
     editingId.value = null
   } catch {
-    error.value = 'Failed to update image.'
+    error.value = t('manage.failedLoad')
   } finally {
     saving.value = false
   }
@@ -292,7 +295,7 @@ const executeDelete = async () => {
     images.value = images.value.filter(i => i.id !== deletingId.value)
     deletingId.value = null
   } catch {
-    error.value = 'Failed to delete image.'
+    error.value = t('manage.failedLoad')
   } finally {
     deleting.value = false
   }
@@ -300,7 +303,7 @@ const executeDelete = async () => {
 
 const formatDate = (iso: string) => {
   try {
-    return new Date(iso).toLocaleDateString('en-US', {
+    return new Date(iso).toLocaleDateString(locale.value, {
       day: '2-digit',
       month: '2-digit',
       year: 'numeric',
@@ -326,13 +329,15 @@ onMounted(() => {
 
 <template>
   <div class="mx-auto max-w-5xl">
+    <ManageSubmenu />
+
     <section class="mb-8 flex items-center justify-between">
       <div>
         <h1 class="text-2xl font-bold tracking-tight text-stone-900 sm:text-3xl">
-          Image Management
+          {{ t('manage.title') }}
         </h1>
         <p class="mt-1 text-sm text-stone-500">
-          {{ images.length }} image(s) total
+          {{ t('manage.totalCount', { count: images.length }) }}
         </p>
       </div>
       <button
@@ -340,15 +345,15 @@ onMounted(() => {
         :disabled="loading"
         @click="fetchImages"
       >
-        Refresh
+        {{ t('manage.refresh') }}
       </button>
     </section>
 
     <section class="mb-8 rounded-xl border border-stone-200 bg-white p-4 shadow-sm sm:p-6">
       <div class="mb-4 flex items-center justify-between">
         <div>
-          <h2 class="text-lg font-semibold text-stone-900">Folder Structure</h2>
-          <p class="text-xs text-stone-500">Root must remain <code>photos</code>. Tag rules map tag to folder path.</p>
+          <h2 class="text-lg font-semibold text-stone-900">{{ t('manage.folderStructure') }}</h2>
+          <p class="text-xs text-stone-500">{{ t('manage.folderRootHint') }}</p>
         </div>
         <div class="flex items-center gap-2">
           <button
@@ -356,28 +361,28 @@ onMounted(() => {
             :disabled="recomputeRunning || folderTreeLoading"
             @click="recomputeAllFolderAssignments"
           >
-            <span v-if="recomputeRunning">Recomputing...</span>
-            <span v-else>Recompute image folders</span>
+            <span v-if="recomputeRunning">{{ t('manage.recomputing') }}</span>
+            <span v-else>{{ t('manage.recompute') }}</span>
           </button>
           <button
             class="rounded-lg bg-stone-100 px-3 py-2 text-sm font-medium text-stone-700 hover:bg-stone-200 disabled:opacity-50"
             :disabled="folderTreeSaving || folderTreeLoading || loading"
             @click="generateFoldersFromTags"
           >
-            Generate folders from tags
+            {{ t('manage.generateFolders') }}
           </button>
           <button
             class="rounded-lg bg-emerald-600 px-3 py-2 text-sm font-medium text-white hover:bg-emerald-700 disabled:opacity-50"
             :disabled="folderTreeSaving || folderTreeLoading"
             @click="saveFolderTree"
           >
-            <span v-if="folderTreeSaving">Saving...</span>
-            <span v-else>Save folders</span>
+            <span v-if="folderTreeSaving">{{ t('manage.saving') }}</span>
+            <span v-else>{{ t('manage.saveFolders') }}</span>
           </button>
         </div>
       </div>
 
-      <div v-if="folderTreeLoading" class="text-sm text-stone-500">Loading folder structure...</div>
+      <div v-if="folderTreeLoading" class="text-sm text-stone-500">{{ t('manage.loadingFolders') }}</div>
       <template v-else>
         <p v-if="folderTreeError" class="mb-3 rounded-lg bg-red-50 px-3 py-2 text-sm text-red-600">{{ folderTreeError }}</p>
         <p v-if="folderTreeSuccess" class="mb-3 rounded-lg bg-emerald-50 px-3 py-2 text-sm text-emerald-700">{{ folderTreeSuccess }}</p>
@@ -407,6 +412,7 @@ onMounted(() => {
           <p class="mb-2 text-xs font-medium text-stone-600">Folder tree preview</p>
           <GalleryFolderTree
             :tree="folderTreePreview"
+            :root-labels="{}"
             :selected-path="selectedFolderPreviewPath"
             @select="selectedFolderPreviewPath = $event"
             @clear="selectedFolderPreviewPath = null"
@@ -421,7 +427,7 @@ onMounted(() => {
         <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4" />
         <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
       </svg>
-      <span class="ml-2 text-sm text-stone-500">Loading...</span>
+      <span class="ml-2 text-sm text-stone-500">{{ t('manage.loading') }}</span>
     </div>
 
     <!-- Error -->
@@ -431,7 +437,7 @@ onMounted(() => {
 
     <!-- Empty state -->
     <div v-if="!loading && images.length === 0" class="rounded-xl border-2 border-dashed border-stone-300 px-6 py-16 text-center">
-      <p class="text-sm text-stone-500">No images yet.</p>
+      <p class="text-sm text-stone-500">{{ t('manage.empty') }}</p>
     </div>
 
     <!-- Image list -->
@@ -492,13 +498,13 @@ ull
                     class="rounded-md bg-stone-100 px-3 py-1 text-xs font-medium text-stone-600 hover:bg-stone-200 transition-colors"
                     @click="startEdit(img)"
                   >
-                    Edit
+                    {{ t('manage.edit') }}
                   </button>
                   <button
                     class="rounded-md bg-red-50 px-3 py-1 text-xs font-medium text-red-600 hover:bg-red-100 transition-colors"
                     @click="confirmDelete(img.id)"
                   >
-                    Delete
+                    {{ t('manage.delete') }}
                   </button>
                 </div>
               </div>
@@ -537,15 +543,15 @@ ull
                     :disabled="saving"
                     @click="cancelEdit"
                   >
-                    Cancel
+                    {{ t('manage.cancel') }}
                   </button>
                   <button
                     class="rounded-md bg-emerald-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-emerald-700 transition-colors disabled:opacity-50"
                     :disabled="saving"
                     @click="saveEdit"
                   >
-                    <span v-if="saving">Saving...</span>
-                    <span v-else>Save</span>
+                    <span v-if="saving">{{ t('manage.saving') }}</span>
+                    <span v-else>{{ t('manage.save') }}</span>
                   </button>
                 </div>
               </div>
@@ -577,15 +583,15 @@ ull
                 :disabled="deleting"
                 @click="cancelDelete"
               >
-                Cancel
+                {{ t('manage.cancel') }}
               </button>
               <button
                 class="rounded-lg bg-red-600 px-4 py-2 text-sm font-medium text-white hover:bg-red-700 transition-colors disabled:opacity-50"
                 :disabled="deleting"
                 @click="executeDelete"
               >
-                <span v-if="deleting">Deleting...</span>
-                <span v-else>Delete</span>
+                <span v-if="deleting">{{ t('manage.saving') }}</span>
+                <span v-else>{{ t('manage.delete') }}</span>
               </button>
             </div>
           </div>

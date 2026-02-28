@@ -105,6 +105,10 @@ public sealed class FolderTreeService : IFolderTreeService
             Root = "photos",
             FolderPaths = ["photos"],
             TagRules = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase),
+            RootLabels = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
+            {
+                ["photos"] = "folders.root.photos",
+            },
         };
     }
 
@@ -113,6 +117,7 @@ public sealed class FolderTreeService : IFolderTreeService
         document.Root = "photos";
         document.FolderPaths ??= [];
         document.TagRules ??= new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+        document.RootLabels ??= new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
 
         var normalizedPaths = new HashSet<string>(StringComparer.OrdinalIgnoreCase) { "photos" };
         foreach (var path in document.FolderPaths)
@@ -122,6 +127,33 @@ public sealed class FolderTreeService : IFolderTreeService
             normalizedPaths.Add(NormalizePath(path));
         }
         document.FolderPaths = normalizedPaths.OrderBy(p => p, StringComparer.OrdinalIgnoreCase).ToList();
+
+        var normalizedRootLabels = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+        foreach (var kv in document.RootLabels)
+        {
+            if (string.IsNullOrWhiteSpace(kv.Key) || string.IsNullOrWhiteSpace(kv.Value))
+                continue;
+            var path = NormalizePath(kv.Key);
+            normalizedRootLabels[path] = kv.Value.Trim();
+        }
+
+        foreach (var path in document.FolderPaths)
+        {
+            if (string.Equals(path, "photos", StringComparison.OrdinalIgnoreCase))
+            {
+                normalizedRootLabels.TryAdd("photos", "folders.root.photos");
+                continue;
+            }
+
+            var segments = path.Split('/', StringSplitOptions.RemoveEmptyEntries);
+            if (segments.Length == 2)
+            {
+                var firstLevel = segments[1].Trim().ToLowerInvariant();
+                if (!string.IsNullOrWhiteSpace(firstLevel))
+                    normalizedRootLabels.TryAdd(path, $"folders.root.{firstLevel}");
+            }
+        }
+        document.RootLabels = normalizedRootLabels;
 
         var normalizedRules = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
         foreach (var kv in document.TagRules)

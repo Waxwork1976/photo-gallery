@@ -13,6 +13,12 @@ import type {
 } from '~/types/image'
 import type { BirdIdentificationResponse } from '~/types/bird'
 import type { PlantNetResponse } from '~/types/plantnet'
+import type {
+  ManageTranslationsRequest,
+  TranslateAllTranslationsRequest,
+  TranslateSingleTranslationRequest,
+  TranslationsResponse,
+} from '~/types/translation'
 
 interface ApiError {
   message: string
@@ -78,6 +84,10 @@ export const useApi = () => {
 
   const getFolderTree = async (): Promise<FolderTreeResponse> => {
     return fetchWithAuth<FolderTreeResponse>('/api/folder-tree')
+  }
+
+  const getTranslations = async (): Promise<TranslationsResponse> => {
+    return fetchWithAuth<TranslationsResponse>('/api/translations')
   }
 
   // ---- Protected endpoints ----
@@ -163,6 +173,37 @@ export const useApi = () => {
     return fetchWithAuth<RecomputeFolderAssignmentsResponse>('/api/recompute-folder-assignments', {
       method: 'POST',
       body: JSON.stringify({}),
+    })
+  }
+
+  const getManageTranslations = async (): Promise<TranslationsResponse> => {
+    return fetchWithAuth<TranslationsResponse>('/api/manage-translations')
+  }
+
+  const updateManageTranslations = async (
+    data: ManageTranslationsRequest,
+  ): Promise<TranslationsResponse> => {
+    return fetchWithAuth<TranslationsResponse>('/api/manage-translations', {
+      method: 'PUT',
+      body: JSON.stringify(data),
+    })
+  }
+
+  const translateAllManageTranslations = async (
+    data: TranslateAllTranslationsRequest,
+  ): Promise<TranslationsResponse> => {
+    return fetchWithAuth<TranslationsResponse>('/api/manage-translations/translate-all', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    })
+  }
+
+  const translateKeyManageTranslations = async (
+    data: TranslateSingleTranslationRequest,
+  ): Promise<TranslationsResponse> => {
+    return fetchWithAuth<TranslationsResponse>('/api/manage-translations/translate-key', {
+      method: 'POST',
+      body: JSON.stringify(data),
     })
   }
 
@@ -271,10 +312,15 @@ export const useApi = () => {
   return {
     listImages,
     getFolderTree,
+    getTranslations,
     listAllImages,
     getManageFolderTree,
     updateManageFolderTree,
     recomputeFolderAssignments,
+    getManageTranslations,
+    updateManageTranslations,
+    translateAllManageTranslations,
+    translateKeyManageTranslations,
     generateSasUrl,
     saveMetadata,
     updateMetadata,

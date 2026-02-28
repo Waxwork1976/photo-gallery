@@ -1,6 +1,9 @@
 <script setup lang="ts">
+import { useTranslations } from '~/composables/useTranslations'
+
 const { user, isAuthenticated, login, logout } = useAuth()
 const mobileMenuOpen = ref(false)
+const { t, locale, setLocale, supportedLocales } = useTranslations()
 </script>
 
 <template>
@@ -12,13 +15,13 @@ const mobileMenuOpen = ref(false)
           <path stroke-linecap="round" stroke-linejoin="round" d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z" />
           <path stroke-linecap="round" stroke-linejoin="round" d="M15 13a3 3 0 11-6 0 3 3 0 016 0z" />
         </svg>
-        <span class="hidden sm:inline">Photo Paccots</span>
+        <span class="hidden sm:inline">{{ t('app.brand') }}</span>
       </NuxtLink>
 
       <!-- Desktop nav -->
       <div class="hidden items-center gap-6 sm:flex">
         <NuxtLink to="/" class="text-sm font-medium text-stone-600 hover:text-emerald-700 transition-colors">
-          Gallery
+          {{ t('nav.gallery') }}
         </NuxtLink>
 
         <NuxtLink
@@ -26,7 +29,7 @@ const mobileMenuOpen = ref(false)
           to="/upload"
           class="text-sm font-medium text-stone-600 hover:text-emerald-700 transition-colors"
         >
-          Upload
+          {{ t('nav.upload') }}
         </NuxtLink>
 
         <NuxtLink
@@ -34,8 +37,18 @@ const mobileMenuOpen = ref(false)
           to="/manage"
           class="text-sm font-medium text-stone-600 hover:text-emerald-700 transition-colors"
         >
-          Manage
+          {{ t('nav.manage') }}
         </NuxtLink>
+
+        <select
+          :value="locale"
+          class="rounded-md border border-stone-300 bg-white px-2 py-1 text-xs text-stone-700"
+          @change="setLocale(($event.target as HTMLSelectElement).value as 'en' | 'fr' | 'de' | 'it')"
+        >
+          <option v-for="lang in supportedLocales" :key="lang" :value="lang">
+            {{ lang.toUpperCase() }}
+          </option>
+        </select>
 
         <!-- Auth button -->
         <template v-if="isAuthenticated">
@@ -44,7 +57,7 @@ const mobileMenuOpen = ref(false)
             class="rounded-lg bg-stone-100 px-3 py-1.5 text-sm font-medium text-stone-700 hover:bg-stone-200 transition-colors"
             @click="logout"
           >
-            Sign out
+            {{ t('auth.signOut') }}
           </button>
         </template>
         <button
@@ -52,7 +65,7 @@ const mobileMenuOpen = ref(false)
           class="rounded-lg bg-emerald-600 px-4 py-1.5 text-sm font-medium text-white shadow-sm hover:bg-emerald-700 transition-colors"
           @click="login"
         >
-          Sign in
+          {{ t('auth.signIn') }}
         </button>
       </div>
 
@@ -79,20 +92,20 @@ const mobileMenuOpen = ref(false)
     >
       <div v-if="mobileMenuOpen" class="border-t border-stone-200 bg-white px-4 pb-4 pt-2 sm:hidden">
         <NuxtLink to="/" class="block rounded-md px-3 py-2 text-sm font-medium text-stone-700 hover:bg-stone-100" @click="mobileMenuOpen = false">
-          Gallery
+          {{ t('nav.gallery') }}
         </NuxtLink>
         <NuxtLink v-if="isAuthenticated" to="/upload" class="block rounded-md px-3 py-2 text-sm font-medium text-stone-700 hover:bg-stone-100" @click="mobileMenuOpen = false">
-          Upload
+          {{ t('nav.upload') }}
         </NuxtLink>
         <NuxtLink v-if="isAuthenticated" to="/manage" class="block rounded-md px-3 py-2 text-sm font-medium text-stone-700 hover:bg-stone-100" @click="mobileMenuOpen = false">
-          Manage
+          {{ t('nav.manage') }}
         </NuxtLink>
 
         <div class="mt-2 border-t border-stone-100 pt-2">
           <template v-if="isAuthenticated">
             <p class="px-3 text-xs text-stone-400">{{ user?.name }}</p>
             <button class="mt-1 block w-full rounded-md px-3 py-2 text-left text-sm font-medium text-stone-700 hover:bg-stone-100" @click="logout(); mobileMenuOpen = false">
-              Sign out
+              {{ t('auth.signOut') }}
             </button>
           </template>
           <button
@@ -100,8 +113,20 @@ const mobileMenuOpen = ref(false)
             class="block w-full rounded-md bg-emerald-600 px-3 py-2 text-center text-sm font-medium text-white hover:bg-emerald-700"
             @click="login(); mobileMenuOpen = false"
           >
-            Sign in
+            {{ t('auth.signIn') }}
           </button>
+        </div>
+        <div class="mt-2 px-3">
+          <label class="mb-1 block text-xs text-stone-500">Lang</label>
+          <select
+            :value="locale"
+            class="w-full rounded-md border border-stone-300 bg-white px-2 py-1 text-xs text-stone-700"
+            @change="setLocale(($event.target as HTMLSelectElement).value as 'en' | 'fr' | 'de' | 'it')"
+          >
+            <option v-for="lang in supportedLocales" :key="lang" :value="lang">
+              {{ lang.toUpperCase() }}
+            </option>
+          </select>
         </div>
       </div>
     </Transition>

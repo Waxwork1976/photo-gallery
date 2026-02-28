@@ -128,6 +128,9 @@ At minimum, set all of the following on Azure Function App:
 - `BirdApi__Path`
 - `BirdApi__ResultsCount`
 - `BirdApi__MinProbability`
+- `Translator__Endpoint`
+- `Translator__ApiKey`
+- `Translator__Region`
 
 ### 4) Required Frontend Environment Variables
 
@@ -184,11 +187,52 @@ Runs at `http://localhost:7071`.
 
 Deployment scripts are in `InstallationScripts/` (gitignored). Run in order:
 
-1. `1_StorageAccount.sh` — Create resource group, storage account, blob container, table
-2. `2_AppRegistration.sh` — Create Entra ID app registration
-3. `3_AzureFunction.sh` — Create function app, set CORS and app settings
-4. `4_Deploy_function.ps1` — Build and deploy the Azure Functions
-5. `5_Deploy_nuxt.ps1` — Generate static site and upload to Azure Storage
+1. `0_AzureProviderRegistrations.sh` — Register required Azure resource providers (Storage, Web, Insights, CognitiveServices)
+2. `1_StorageAccount.sh` — Create resource group, storage account, blob container, table
+3. `2_AppRegistration.sh` — Create Entra ID app registration
+4. `3_1_AzureCognitiveService.sh` — Create Azure AI Translator cognitive account and output endpoint/key
+5. `3_AzureFunction.sh` — Create function app, set CORS and app settings (including Translator settings)
+6. `4_Deploy_function.ps1` — Build and deploy the Azure Functions
+7. `5_Deploy_nuxt.ps1` — Generate static site and upload to Azure Storage
+
+### Deployment Notes
+
+- Run scripts from repo root: `cd PhotoPaccots`
+- Make scripts executable once:
+  - `chmod +x InstallationScripts/0_AzureProviderRegistrations.sh`
+  - `chmod +x InstallationScripts/3_1_AzureCognitiveService.sh`
+  - `chmod +x InstallationScripts/3_AzureFunction.sh`
+- `0_AzureProviderRegistrations.sh` fixes `MissingSubscriptionRegistration` errors (including `Microsoft.CognitiveServices` for Translator).
+- `3_1_AzureCognitiveService.sh` outputs:
+  - `TRANSLATOR_ENDPOINT`
+  - `TRANSLATOR_KEY`
+  - `COG_ACCOUNT_NAME`
+- `3_AzureFunction.sh` can auto-discover Translator values from `COG_ACCOUNT_NAME`, or you can pass explicit `TRANSLATOR_ENDPOINT` / `TRANSLATOR_KEY`.
+- If Translator settings were missing/rotated after deployment, run `fix_add_translation_key.sh` to update only:
+  - `Translator__Endpoint`
+  - `Translator__ApiKey`
+  - `Translator__Region`
+
+### Example (bash)
+
+```bash
+export RG_NAME="rg-photo-gallery"
+export LOCATION="global"
+export COG_ACCOUNT_NAME="waxphotogallerytranslator"
+
+./InstallationScripts/0_AzureProviderRegistrations.sh
+./InstallationScripts/3_1_AzureCognitiveService.sh
+```
+
+### Fix Translator settings only
+
+```bash
+export RG_NAME="rg-photo-gallery"
+export FUNCTION_APP_NAME="wax-photogallery-api"
+export COG_ACCOUNT_NAME="waxphotogallerytranslator"
+
+./InstallationScripts/fix_add_translation_key.sh
+```
 
 ## Security
 

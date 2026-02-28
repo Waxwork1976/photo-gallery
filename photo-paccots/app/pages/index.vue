@@ -1,7 +1,9 @@
 <script setup lang="ts">
 import type { FolderTreeNodeDto, ImageDto } from '~/types/image'
+import { useTranslations } from '~/composables/useTranslations'
 
 const api = useApi()
+const { t } = useTranslations()
 
 const images = ref<ImageDto[]>([])
 const loading = ref(true)
@@ -9,6 +11,7 @@ const error = ref<string | null>(null)
 const selectedImage = ref<ImageDto | null>(null)
 const folderTree = ref<FolderTreeNodeDto[]>([])
 const folderTagRules = ref<Record<string, string>>({})
+const folderRootLabels = ref<Record<string, string>>({})
 const selectedFolderPath = ref<string | null>(null)
 
 const fetchImages = async () => {
@@ -19,7 +22,7 @@ const fetchImages = async () => {
     const data = await api.listImages()
     images.value = data.images
   } catch (err: unknown) {
-    error.value = err instanceof Error ? err.message : 'Failed to load images'
+    error.value = err instanceof Error ? err.message : t('gallery.loadError')
   } finally {
     loading.value = false
   }
@@ -30,9 +33,11 @@ const fetchFolderTree = async () => {
     const data = await api.getFolderTree()
     folderTree.value = data.tree
     folderTagRules.value = data.tagRules || {}
+    folderRootLabels.value = data.rootLabels || {}
   } catch {
     folderTree.value = []
     folderTagRules.value = {}
+    folderRootLabels.value = {}
   }
 }
 
@@ -67,10 +72,10 @@ useHead({
     <!-- Hero -->
     <section class="mb-10 text-center">
       <h1 class="text-3xl font-bold tracking-tight text-stone-900 sm:text-4xl">
-        Nature &amp; Garden Gallery
+        {{ t('gallery.title') }}
       </h1>
       <p class="mt-2 text-base text-stone-500">
-        A curated collection of nature and garden photography
+        {{ t('gallery.subtitle') }}
       </p>
     </section>
 
@@ -81,13 +86,14 @@ useHead({
     >
       {{ error }}
       <button class="ml-2 font-medium underline hover:text-red-700" @click="fetchImages">
-        Retry
+        {{ t('gallery.retry') }}
       </button>
     </div>
 
     <section class="mb-8 grid gap-6 lg:grid-cols-[260px_1fr]">
       <GalleryFolderTree
         :tree="folderTree"
+        :root-labels="folderRootLabels"
         :selected-path="selectedFolderPath"
         @select="selectedFolderPath = $event"
         @clear="selectedFolderPath = null"
