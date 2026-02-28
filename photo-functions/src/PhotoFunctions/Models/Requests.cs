@@ -16,7 +16,9 @@ public sealed record SaveMetadataRequest(
     string ContentType,
     long SizeBytes,
     int? Width = null,
-    int? Height = null
+    int? Height = null,
+    double? Latitude = null,
+    double? Longitude = null
 );
 
 /// <summary>Request body for updating image metadata.</summary>

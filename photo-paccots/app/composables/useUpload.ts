@@ -19,6 +19,8 @@ export const useUpload = () => {
       title: string
       description: string
       tags: string[]
+      latitude?: number
+      longitude?: number
     },
   ) => {
     state.isUploading = true
@@ -50,6 +52,8 @@ export const useUpload = () => {
         tags: metadata.tags,
         contentType: file.type,
         sizeBytes: file.size,
+        latitude: metadata.latitude,
+        longitude: metadata.longitude,
       })
 
       state.progress = 100

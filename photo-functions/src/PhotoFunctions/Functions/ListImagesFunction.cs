@@ -66,6 +66,8 @@ public sealed class ListImagesFunction
                 UploadedAt: e.UploadedAt,
                 Width: e.Width,
                 Height: e.Height,
+                Latitude: e.Latitude,
+                Longitude: e.Longitude,
                 SizeBytes: e.SizeBytes,
                 Featured: e.Featured);
         }).ToArray();

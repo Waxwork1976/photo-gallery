@@ -29,6 +29,8 @@ public sealed record ImageDto(
     string UploadedAt,
     int Width,
     int Height,
+    double? Latitude,
+    double? Longitude,
     long SizeBytes,
     bool Featured
 );
