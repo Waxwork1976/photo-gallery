@@ -31,7 +31,8 @@ public sealed class ManageSlideshowSettingsFunctions
         var document = await _slideshowSettingsService.GetDocumentAsync();
         return new OkObjectResult(new SlideshowSettingsResponse(
             PhotoCount: document.PhotoCount,
-            IntervalSeconds: document.IntervalSeconds));
+            IntervalSeconds: document.IntervalSeconds,
+            TransitionSeconds: document.TransitionSeconds));
     }
 
     [Function("manage-slideshow-settings-put")]
@@ -59,12 +60,14 @@ public sealed class ManageSlideshowSettingsFunctions
         {
             PhotoCount = body.PhotoCount,
             IntervalSeconds = body.IntervalSeconds,
+            TransitionSeconds = body.TransitionSeconds,
         });
 
         var persisted = await _slideshowSettingsService.GetDocumentAsync();
         return new OkObjectResult(new SlideshowSettingsResponse(
             PhotoCount: persisted.PhotoCount,
-            IntervalSeconds: persisted.IntervalSeconds));
+            IntervalSeconds: persisted.IntervalSeconds,
+            TransitionSeconds: persisted.TransitionSeconds));
     }
 
     private async Task<(ClaimsPrincipal? principal, IActionResult? error)> AuthorizeAsync(HttpRequest req)

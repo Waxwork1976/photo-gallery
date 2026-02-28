@@ -8,4 +8,5 @@ public interface IFolderTreeService
     Task SaveDocumentAsync(FolderTreeDocument document);
     FolderTreeNodeDto[] BuildTree(FolderTreeDocument document);
     (string PrimaryFolderPath, string[] FolderPaths) ResolveFoldersFromTags(string[] tags, FolderTreeDocument document);
+    FolderTreeDocument GenerateDocumentFromImageTags(IEnumerable<string[]> imageTags);
 }

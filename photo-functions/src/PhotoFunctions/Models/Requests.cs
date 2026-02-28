@@ -53,5 +53,6 @@ public sealed record TranslateSingleTranslationRequest(
 
 public sealed record ManageSlideshowSettingsRequest(
     int PhotoCount,
-    int IntervalSeconds
+    int IntervalSeconds,
+    double TransitionSeconds
 );

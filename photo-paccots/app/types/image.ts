@@ -107,9 +107,11 @@ export interface RecomputeFolderAssignmentsResponse {
 export interface SlideshowSettingsDto {
   photoCount: number
   intervalSeconds: number
+  transitionSeconds: number
 }
 
 export interface ManageSlideshowSettingsRequest {
   photoCount: number
   intervalSeconds: number
+  transitionSeconds: number
 }

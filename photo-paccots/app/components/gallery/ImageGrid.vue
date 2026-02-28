@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { PhotoIcon } from '@heroicons/vue/24/outline'
 import type { ImageDto } from '~/types/image'
 
 defineProps<{
@@ -36,11 +37,9 @@ const emit = defineEmits<{
       v-else-if="images.length === 0"
       class="flex flex-col items-center justify-center py-24 text-center"
     >
-      <svg xmlns="http://www.w3.org/2000/svg" class="mb-4 h-16 w-16 text-stone-300" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1">
-        <path stroke-linecap="round" stroke-linejoin="round" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
-      </svg>
+      <PhotoIcon class="mb-4 h-14 w-14 text-stone-300" />
       <h3 class="text-lg font-medium text-stone-600">No photos yet</h3>
-      <p class="mt-1 text-sm text-stone-400">Upload your first photo to get started.</p>
+      <p class="mt-1 text-sm text-stone-500">Upload your first photo to get started.</p>
     </div>
 
     <!-- Image grid -->

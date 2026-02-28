@@ -180,13 +180,13 @@ onMounted(load)
       </p>
     </section>
 
-    <section class="rounded-xl border border-stone-200 bg-white p-4 shadow-sm sm:p-6">
+    <section class="ui-card p-4 sm:p-6">
       <div class="mb-4 grid gap-3 sm:grid-cols-[160px_160px_1fr_auto_auto_auto] sm:items-end">
         <div>
           <label class="block text-xs font-medium text-stone-600">{{ t('translations.language') }}</label>
           <select
             v-model="selectedLocale"
-            class="mt-1 block w-full rounded-md border border-stone-300 px-2 py-1.5 text-sm focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500"
+            class="ui-input-compact"
           >
             <option v-for="lang in supportedLocales" :key="lang" :value="lang">
               {{ lang.toUpperCase() }}
@@ -197,7 +197,7 @@ onMounted(load)
           <label class="block text-xs font-medium text-stone-600">{{ t('translations.targetLanguage') }}</label>
           <select
             v-model="targetLocale"
-            class="mt-1 block w-full rounded-md border border-stone-300 px-2 py-1.5 text-sm focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500"
+            class="ui-input-compact"
           >
             <option value="all">
               {{ t('translations.allLanguages') }}
@@ -212,12 +212,12 @@ onMounted(load)
           <input
             v-model="search"
             type="text"
-            class="mt-1 block w-full rounded-md border border-stone-300 px-2 py-1.5 text-sm focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500"
+            class="ui-input-compact"
             placeholder="upload.page.title"
           >
         </div>
         <button
-          class="rounded-lg bg-indigo-600 px-3 py-2 text-sm font-medium text-white hover:bg-indigo-700 transition-colors disabled:opacity-50"
+          class="btn-accent"
           :disabled="loading || saving || updatingAll"
           @click="updateAllFromSourceLanguage"
         >
@@ -225,14 +225,14 @@ onMounted(load)
           <span v-else>{{ t('translations.updateAll') }}</span>
         </button>
         <button
-          class="rounded-lg bg-stone-100 px-3 py-2 text-sm font-medium text-stone-700 hover:bg-stone-200 transition-colors"
+          class="btn-secondary"
           :disabled="loading || saving || updatingAll"
           @click="reset"
         >
           {{ t('translations.reset') }}
         </button>
         <button
-          class="rounded-lg bg-emerald-600 px-3 py-2 text-sm font-medium text-white hover:bg-emerald-700 transition-colors disabled:opacity-50"
+          class="btn-primary"
           :disabled="loading || saving || updatingAll"
           @click="save"
         >
@@ -242,8 +242,8 @@ onMounted(load)
       </div>
 
       <p v-if="loading" class="text-sm text-stone-500">{{ t('translations.loading') }}</p>
-      <p v-if="error" class="mb-3 rounded-lg bg-red-50 px-3 py-2 text-sm text-red-600">{{ error }}</p>
-      <p v-if="success" class="mb-3 rounded-lg bg-emerald-50 px-3 py-2 text-sm text-emerald-700">{{ success }}</p>
+      <p v-if="error" class="alert-error">{{ error }}</p>
+      <p v-if="success" class="alert-success">{{ success }}</p>
 
       <div v-if="!loading" class="space-y-2">
         <div
@@ -257,11 +257,11 @@ onMounted(load)
           <input
             :value="getValue(key)"
             type="text"
-            class="rounded-md border border-stone-300 px-2 py-1.5 text-sm focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500"
+            class="ui-input-compact mt-0"
             @input="setValue(key, ($event.target as HTMLInputElement).value)"
           >
           <button
-            class="rounded-md bg-indigo-50 px-2 py-1.5 text-xs font-medium text-indigo-700 hover:bg-indigo-100 transition-colors disabled:opacity-50"
+            class="btn-accent-soft rounded-md px-2 py-1.5 text-xs"
             :disabled="loading || saving || updatingAll || updatingByKey[key]"
             @click="updateSingleKeyFromSourceLanguage(key)"
           >

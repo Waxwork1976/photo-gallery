@@ -1,4 +1,6 @@
 using System.Text.Json;
+using System.Text;
+using System.Globalization;
 using PhotoFunctions.Models;
 
 namespace PhotoFunctions.Services;
@@ -98,6 +100,59 @@ public sealed class FolderTreeService : IFolderTreeService
         return (ordered[0], ordered);
     }
 
+    public FolderTreeDocument GenerateDocumentFromImageTags(IEnumerable<string[]> imageTags)
+    {
+        var folderPaths = new HashSet<string>(StringComparer.OrdinalIgnoreCase) { "photos" };
+        var rules = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+
+        foreach (var tags in imageTags)
+        {
+            var normalizedTags = (tags ?? [])
+                .Select(tag => tag?.Trim())
+                .Where(tag => !string.IsNullOrWhiteSpace(tag))
+                .Cast<string>()
+                .ToArray();
+
+            if (normalizedTags.Length == 0)
+                continue;
+
+            var currentPath = "photos";
+            var usedSiblings = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+
+            foreach (var tag in normalizedTags)
+            {
+                var baseSegment = SanitizeFolderSegment(tag);
+                var segment = baseSegment;
+                var i = 2;
+
+                while (usedSiblings.Contains(segment))
+                {
+                    segment = $"{baseSegment}-{i}";
+                    i++;
+                }
+                usedSiblings.Add(segment);
+
+                currentPath = $"{currentPath}/{segment}";
+                folderPaths.Add(currentPath);
+
+                if (!rules.ContainsKey(tag))
+                    rules[tag] = currentPath;
+            }
+        }
+
+        var document = new FolderTreeDocument
+        {
+            Root = "photos",
+            FolderPaths = folderPaths
+                .OrderBy(path => path, StringComparer.OrdinalIgnoreCase)
+                .ToList(),
+            TagRules = rules,
+            RootLabels = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase),
+        };
+        NormalizeDocument(document);
+        return document;
+    }
+
     private static FolderTreeDocument CreateDefaultDocument()
     {
         return new FolderTreeDocument
@@ -174,6 +229,39 @@ public sealed class FolderTreeService : IFolderTreeService
         if (!p.StartsWith("photos", StringComparison.OrdinalIgnoreCase))
             p = $"photos/{p}";
         return p;
+    }
+
+    private static string SanitizeFolderSegment(string value)
+    {
+        var normalized = value.Normalize(NormalizationForm.FormD);
+        var chars = normalized
+            .Where(ch => CharUnicodeInfo.GetUnicodeCategory(ch) != UnicodeCategory.NonSpacingMark)
+            .ToArray();
+        var ascii = new string(chars)
+            .ToLowerInvariant()
+            .Trim();
+
+        var collapsed = new List<char>(ascii.Length);
+        var previousDash = false;
+        foreach (var ch in ascii)
+        {
+            var isAlphaNum = (ch >= 'a' && ch <= 'z') || (ch >= '0' && ch <= '9');
+            if (isAlphaNum)
+            {
+                collapsed.Add(ch);
+                previousDash = false;
+                continue;
+            }
+
+            if (!previousDash)
+            {
+                collapsed.Add('-');
+                previousDash = true;
+            }
+        }
+
+        var result = new string(collapsed.ToArray()).Trim('-');
+        return string.IsNullOrWhiteSpace(result) ? "tag" : result;
     }
 
     private static FolderTreeNodeDto Convert(Node node)

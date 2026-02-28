@@ -22,6 +22,7 @@ public sealed class GetSlideshowSettingsFunction
         var document = await _slideshowSettingsService.GetDocumentAsync();
         return new OkObjectResult(new SlideshowSettingsResponse(
             PhotoCount: document.PhotoCount,
-            IntervalSeconds: document.IntervalSeconds));
+            IntervalSeconds: document.IntervalSeconds,
+            TransitionSeconds: document.TransitionSeconds));
     }
 }
