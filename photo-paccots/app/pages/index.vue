@@ -13,6 +13,8 @@ const folderTree = ref<FolderTreeNodeDto[]>([])
 const folderTagRules = ref<Record<string, string>>({})
 const folderRootLabels = ref<Record<string, string>>({})
 const selectedFolderPath = ref<string | null>(null)
+const slideshowIntervalSeconds = ref(4)
+const slideshowPhotoCount = ref(8)
 
 const fetchImages = async () => {
   loading.value = true
@@ -41,25 +43,144 @@ const fetchFolderTree = async () => {
   }
 }
 
-const filteredImages = computed(() => {
-  if (!selectedFolderPath.value)
-    return images.value
-  const selected = selectedFolderPath.value
-  return images.value.filter((img) => {
-    const mappedFromTags = (img.tags ?? [])
-      .map((tag) => folderTagRules.value[tag])
-      .filter((p): p is string => Boolean(p))
+const fetchSlideshowSettings = async () => {
+  try {
+    const settings = await api.getSlideshowSettings()
+    slideshowPhotoCount.value = Math.max(1, settings.photoCount)
+    slideshowIntervalSeconds.value = Math.max(1, settings.intervalSeconds)
+  } catch {
+    slideshowPhotoCount.value = 8
+    slideshowIntervalSeconds.value = 4
+  }
+}
 
-    return img.folderPaths?.some((p) => p === selected || p.startsWith(`${selected}/`))
-      || img.primaryFolderPath === selected
-      || img.primaryFolderPath?.startsWith(`${selected}/`)
-      || mappedFromTags.some((p) => p === selected || p.startsWith(`${selected}/`))
-  })
+const normalizePath = (path: string) => path.replace(/\\/g, '/').replace(/\/+/g, '/').replace(/\/$/, '')
+
+const humanizeSegment = (value: string) => value
+  .replace(/[-_]+/g, ' ')
+  .replace(/\s+/g, ' ')
+  .trim()
+  .replace(/^\w/, c => c.toUpperCase())
+
+const isInPath = (candidate: string, selected: string) =>
+  candidate === selected || candidate.startsWith(`${selected}/`)
+
+const imageInFolderSubtree = (img: ImageDto, selected: string) => {
+  const mappedFromTags = (img.tags ?? [])
+    .map((tag) => folderTagRules.value[tag])
+    .filter((p): p is string => Boolean(p))
+    .map(normalizePath)
+
+  const folderPaths = (img.folderPaths ?? []).map(normalizePath)
+  const primaryFolderPath = normalizePath(img.primaryFolderPath || 'photos')
+  const normalizedSelected = normalizePath(selected)
+
+  return folderPaths.some(p => isInPath(p, normalizedSelected))
+    || isInPath(primaryFolderPath, normalizedSelected)
+    || mappedFromTags.some(p => isInPath(p, normalizedSelected))
+}
+
+const imagesForSubtree = (path: string) => images.value.filter(img => imageInFolderSubtree(img, path))
+
+const treeIndex = computed(() => {
+  const map = new Map<string, FolderTreeNodeDto>()
+  const walk = (node: FolderTreeNodeDto) => {
+    map.set(node.path, node)
+    for (const child of node.children ?? []) {
+      walk(child)
+    }
+  }
+  for (const node of folderTree.value) {
+    walk(node)
+  }
+  return map
+})
+
+const rootNode = computed(() => {
+  if (folderTree.value.length === 0) return null
+  return folderTree.value.find(n => n.path === 'photos') ?? folderTree.value[0]
+})
+
+const selectedNode = computed(() => {
+  if (!selectedFolderPath.value) return null
+  return treeIndex.value.get(selectedFolderPath.value) ?? null
+})
+
+const isLeafSelection = computed(() => {
+  if (!selectedNode.value) return false
+  return (selectedNode.value.children?.length ?? 0) === 0
+})
+
+const viewMode = computed<'root' | 'intermediate' | 'leaf'>(() => {
+  if (!selectedNode.value) return 'root'
+  return isLeafSelection.value ? 'leaf' : 'intermediate'
+})
+
+const secondLevelNodes = computed(() => {
+  if (!rootNode.value) return []
+  const grandchildren = rootNode.value.children.flatMap(child => child.children ?? [])
+  return grandchildren
+})
+
+const displayFolderNodes = computed(() => {
+  if (viewMode.value === 'root') return secondLevelNodes.value
+  if (viewMode.value === 'intermediate') return selectedNode.value?.children ?? []
+  return []
+})
+
+const slideshowSourceImages = computed(() => {
+  if (viewMode.value === 'leaf') return []
+  if (viewMode.value === 'intermediate' && selectedFolderPath.value)
+    return imagesForSubtree(selectedFolderPath.value)
+  return images.value
+})
+
+const leafImages = computed(() => {
+  if (viewMode.value !== 'leaf' || !selectedFolderPath.value) return []
+  return imagesForSubtree(selectedFolderPath.value)
+})
+
+const folderCardPreviewMap = ref<Record<string, ImageDto | null>>({})
+
+watch(
+  [displayFolderNodes, images, selectedFolderPath],
+  () => {
+    const next: Record<string, ImageDto | null> = {}
+    for (const node of displayFolderNodes.value) {
+      const candidates = imagesForSubtree(node.path)
+      if (candidates.length === 0) {
+        next[node.path] = null
+        continue
+      }
+      const randomIndex = Math.floor(Math.random() * candidates.length)
+      next[node.path] = candidates[randomIndex] ?? null
+    }
+    folderCardPreviewMap.value = next
+  },
+  { immediate: true },
+)
+
+const localizedFolderLabel = (node: FolderTreeNodeDto) => {
+  const key = folderRootLabels.value[node.path]
+  if (key) {
+    const translated = t(key)
+    if (translated !== key) return translated
+  }
+  return humanizeSegment(node.name) || node.name
+}
+
+const folderCards = computed(() => {
+  return displayFolderNodes.value.map(node => ({
+    path: node.path,
+    label: localizedFolderLabel(node),
+    thumbnailUrl: folderCardPreviewMap.value[node.path]?.thumbnailUrl ?? null,
+  }))
 })
 
 onMounted(() => {
   fetchImages()
   fetchFolderTree()
+  fetchSlideshowSettings()
 })
 
 useHead({
@@ -99,12 +220,34 @@ useHead({
         @clear="selectedFolderPath = null"
       />
 
-      <!-- Grid -->
-      <GalleryImageGrid
-        :images="filteredImages"
-        :loading="loading"
-        @select="selectedImage = $event"
-      />
+      <section class="space-y-6">
+        <GalleryImageGrid
+          v-if="loading"
+          :images="[]"
+          :loading="true"
+        />
+
+        <template v-else-if="viewMode === 'leaf'">
+          <GalleryImageGrid
+            :images="leafImages"
+            :loading="false"
+            @select="selectedImage = $event"
+          />
+        </template>
+
+        <template v-else>
+          <GalleryRandomSlideshow
+            :images="slideshowSourceImages"
+            :interval-seconds="slideshowIntervalSeconds"
+            :max-photos="slideshowPhotoCount"
+          />
+
+          <GalleryFolderCardsGrid
+            :cards="folderCards"
+            @select="selectedFolderPath = $event"
+          />
+        </template>
+      </section>
     </section>
 
     <!-- Lightbox -->

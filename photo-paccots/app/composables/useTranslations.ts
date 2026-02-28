@@ -45,6 +45,16 @@ const defaultEn: TranslationDictionary = {
 
   'manage.submenu.images': 'Images',
   'manage.submenu.translations': 'Translations',
+  'manage.submenu.settings': 'Settings',
+
+  'settings.title': 'Gallery Settings',
+  'settings.subtitle': 'Configure slideshow behavior used in the gallery.',
+  'settings.photoCount': 'Number of photos in slideshow',
+  'settings.intervalSeconds': 'Slide interval (seconds)',
+  'settings.loadError': 'Failed to load settings.',
+  'settings.saveError': 'Failed to save settings.',
+  'settings.saveSuccess': 'Settings saved.',
+  'settings.save': 'Save settings',
 
   'translations.title': 'Translations',
   'translations.subtitle': 'Customize UI text for each supported language.',

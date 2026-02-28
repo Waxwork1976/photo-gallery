@@ -30,6 +30,7 @@ var host = new HostBuilder()
         services.AddSingleton<IPhotoTableService, PhotoTableService>();
         services.AddSingleton<IFolderTreeService, FolderTreeService>();
         services.AddSingleton<ITranslationService, TranslationService>();
+        services.AddSingleton<ISlideshowSettingsService, SlideshowSettingsService>();
         services.AddHttpClient<ITranslatorService, TranslatorService>();
 
         services.AddHttpClient<IPlantIdentificationService, PlantIdentificationService>();

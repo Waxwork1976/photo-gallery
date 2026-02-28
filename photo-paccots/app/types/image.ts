@@ -103,3 +103,13 @@ export interface RecomputeFolderAssignmentsResponse {
   total: number
   updated: number
 }
+
+export interface SlideshowSettingsDto {
+  photoCount: number
+  intervalSeconds: number
+}
+
+export interface ManageSlideshowSettingsRequest {
+  photoCount: number
+  intervalSeconds: number
+}
