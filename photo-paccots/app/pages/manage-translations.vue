@@ -1,5 +1,6 @@
 <script setup lang="ts">
-import type { SupportedLocale } from '~/types/translation'
+import { LockClosedIcon, LockOpenIcon } from '@heroicons/vue/24/outline'
+import type { SupportedLocale, TranslationEntry, TranslationEntryDictionary } from '~/types/translation'
 import ManageSubmenu from '~/components/manage/ManageSubmenu.vue'
 import { useTranslations } from '~/composables/useTranslations'
 
@@ -23,7 +24,7 @@ const updatingByKey = ref<Record<string, boolean>>({})
 const error = ref<string | null>(null)
 const success = ref<string | null>(null)
 const search = ref('')
-const draft = ref<Record<SupportedLocale, Record<string, string>>>({
+const draft = ref<Record<SupportedLocale, TranslationEntryDictionary>>({
   en: {},
   fr: {},
   de: {},
@@ -46,31 +47,86 @@ const filteredKeys = computed(() => {
   return orderedKeys.value.filter((k) => k.toLowerCase().includes(q))
 })
 
-const getValue = (key: string) => draft.value[selectedLocale.value]?.[key] ?? ''
+const toEntry = (value: string = '', autoTranslate = true): TranslationEntry => ({
+  value,
+  autoTranslate,
+})
 
-const setValue = (key: string, value: string) => {
-  draft.value[selectedLocale.value][key] = value
+const ensureEntry = (locale: SupportedLocale, key: string): TranslationEntry => {
+  const existing = draft.value[locale][key]
+  if (existing) return existing
+  const seeded = toEntry(defaultLocales[locale]?.[key] ?? '', true)
+  draft.value[locale][key] = seeded
+  return seeded
 }
 
-const normalizeLocales = (payload: unknown): Record<SupportedLocale, Record<string, string>> => {
+const getValue = (key: string) => ensureEntry(selectedLocale.value, key).value
+const isAutoTranslate = (key: string) => ensureEntry(selectedLocale.value, key).autoTranslate
+
+const setValue = (key: string, value: string) => {
+  const entry = ensureEntry(selectedLocale.value, key)
+  entry.value = value
+  entry.autoTranslate = false
+}
+
+const toggleAutoTranslate = (key: string) => {
+  const entry = ensureEntry(selectedLocale.value, key)
+  entry.autoTranslate = !entry.autoTranslate
+}
+
+const normalizeEntryDictionary = (dictionary: unknown): TranslationEntryDictionary => {
+  const candidate = dictionary as Record<string, unknown> | undefined
+  const normalized: TranslationEntryDictionary = {}
+  if (!candidate) return normalized
+
+  for (const [key, value] of Object.entries(candidate)) {
+    if (!key?.trim()) continue
+    if (typeof value === 'string') {
+      normalized[key] = toEntry(value, true)
+      continue
+    }
+    if (value && typeof value === 'object') {
+      const obj = value as { value?: unknown; Value?: unknown; autoTranslate?: unknown; AutoTranslate?: unknown }
+      const autoTranslateRaw = obj.autoTranslate ?? obj.AutoTranslate
+      const autoTranslate = typeof autoTranslateRaw === 'boolean'
+        ? autoTranslateRaw
+        : true
+      normalized[key] = toEntry(
+        String(obj.value ?? obj.Value ?? ''),
+        autoTranslate,
+      )
+    }
+  }
+  return normalized
+}
+
+const normalizeLocales = (payload: unknown): Record<SupportedLocale, TranslationEntryDictionary> => {
   const candidate = payload as
-    | { locales?: Partial<Record<SupportedLocale, Record<string, string>>>; Locales?: Partial<Record<SupportedLocale, Record<string, string>>> }
+    | { locales?: Partial<Record<SupportedLocale, unknown>>; Locales?: Partial<Record<SupportedLocale, unknown>> }
     | undefined
   const locales = candidate?.locales ?? candidate?.Locales
   return {
-    en: { ...(locales?.en ?? {}) },
-    fr: { ...(locales?.fr ?? {}) },
-    de: { ...(locales?.de ?? {}) },
-    it: { ...(locales?.it ?? {}) },
+    en: normalizeEntryDictionary(locales?.en),
+    fr: normalizeEntryDictionary(locales?.fr),
+    de: normalizeEntryDictionary(locales?.de),
+    it: normalizeEntryDictionary(locales?.it),
   }
 }
 
-const applyLocales = (locales: Record<SupportedLocale, Record<string, string>>) => {
+const toDefaultEntries = (locale: SupportedLocale): TranslationEntryDictionary => {
+  const entries: TranslationEntryDictionary = {}
+  for (const [key, value] of Object.entries(defaultLocales[locale] ?? {})) {
+    entries[key] = toEntry(value, true)
+  }
+  return entries
+}
+
+const applyLocales = (locales: Record<SupportedLocale, TranslationEntryDictionary>) => {
   draft.value = {
-    en: { ...defaultLocales.en, ...locales.en },
-    fr: { ...defaultLocales.fr, ...locales.fr },
-    de: { ...defaultLocales.de, ...locales.de },
-    it: { ...defaultLocales.it, ...locales.it },
+    en: { ...toDefaultEntries('en'), ...locales.en },
+    fr: { ...toDefaultEntries('fr'), ...locales.fr },
+    de: { ...toDefaultEntries('de'), ...locales.de },
+    it: { ...toDefaultEntries('it'), ...locales.it },
   }
 }
 
@@ -107,7 +163,12 @@ const save = async () => {
     const res = await api.updateManageTranslations({ locales: draft.value })
     const locales = normalizeLocales(res)
     applyLocales(locales)
-    setRemoteLocales(locales)
+    setRemoteLocales({
+      en: Object.fromEntries(Object.entries(locales.en).map(([key, entry]) => [key, entry.value])),
+      fr: Object.fromEntries(Object.entries(locales.fr).map(([key, entry]) => [key, entry.value])),
+      de: Object.fromEntries(Object.entries(locales.de).map(([key, entry]) => [key, entry.value])),
+      it: Object.fromEntries(Object.entries(locales.it).map(([key, entry]) => [key, entry.value])),
+    })
     success.value = t('translations.successSave')
   } catch (err: unknown) {
     const detail = (err as { message?: string })?.message ?? ''
@@ -249,7 +310,7 @@ onMounted(load)
         <div
           v-for="key in filteredKeys"
           :key="key"
-          class="grid gap-2 rounded-lg border border-stone-200 p-2 sm:grid-cols-[280px_1fr_auto]"
+          class="grid gap-2 rounded-lg border border-stone-200 p-2 sm:grid-cols-[280px_1fr_auto_auto]"
         >
           <div class="font-mono text-xs text-stone-500">
             {{ key }}
@@ -260,6 +321,16 @@ onMounted(load)
             class="ui-input-compact mt-0"
             @input="setValue(key, ($event.target as HTMLInputElement).value)"
           >
+          <button
+            class="btn-secondary rounded-md px-2 py-1.5 text-xs"
+            :class="isAutoTranslate(key) ? '!border-emerald-200 !bg-emerald-50 !text-emerald-700 hover:!bg-emerald-100' : '!border-red-200 !bg-red-50 !text-red-700 hover:!bg-red-100'"
+            :title="isAutoTranslate(key) ? t('translations.autoTranslateOn') : t('translations.autoTranslateOff')"
+            :disabled="loading || saving || updatingAll"
+            @click="toggleAutoTranslate(key)"
+          >
+            <LockOpenIcon v-if="isAutoTranslate(key)" class="h-4 w-4 text-emerald-700" />
+            <LockClosedIcon v-else class="h-4 w-4 text-red-700" />
+          </button>
           <button
             class="btn-accent-soft rounded-md px-2 py-1.5 text-xs"
             :disabled="loading || saving || updatingAll || updatingByKey[key]"

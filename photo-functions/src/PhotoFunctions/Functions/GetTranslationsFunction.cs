@@ -20,6 +20,13 @@ public sealed class GetTranslationsFunction
         [HttpTrigger(AuthorizationLevel.Anonymous, "get", Route = "translations")] HttpRequest req)
     {
         var document = await _translationService.GetDocumentAsync();
-        return new OkObjectResult(new TranslationsResponse(document.Locales));
+        var locales = document.Locales.ToDictionary(
+            locale => locale.Key,
+            locale => locale.Value.ToDictionary(
+                entry => entry.Key,
+                entry => entry.Value?.Value ?? string.Empty,
+                StringComparer.OrdinalIgnoreCase),
+            StringComparer.OrdinalIgnoreCase);
+        return new OkObjectResult(new TranslationsResponse(locales));
     }
 }

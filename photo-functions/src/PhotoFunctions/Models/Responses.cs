@@ -62,6 +62,10 @@ public sealed record TranslationsResponse(
     Dictionary<string, Dictionary<string, string>> Locales
 );
 
+public sealed record ManageTranslationsResponse(
+    Dictionary<string, Dictionary<string, TranslationEntry>> Locales
+);
+
 public sealed record SlideshowSettingsResponse(
     int PhotoCount,
     int IntervalSeconds,

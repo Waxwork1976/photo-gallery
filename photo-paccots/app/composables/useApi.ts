@@ -16,6 +16,7 @@ import type {
 import type { BirdIdentificationResponse } from '~/types/bird'
 import type { PlantNetResponse } from '~/types/plantnet'
 import type {
+  ManageTranslationsResponse,
   ManageTranslationsRequest,
   TranslateAllTranslationsRequest,
   TranslateSingleTranslationRequest,
@@ -182,14 +183,14 @@ export const useApi = () => {
     })
   }
 
-  const getManageTranslations = async (): Promise<TranslationsResponse> => {
-    return fetchWithAuth<TranslationsResponse>('/api/manage-translations')
+  const getManageTranslations = async (): Promise<ManageTranslationsResponse> => {
+    return fetchWithAuth<ManageTranslationsResponse>('/api/manage-translations')
   }
 
   const updateManageTranslations = async (
     data: ManageTranslationsRequest,
-  ): Promise<TranslationsResponse> => {
-    return fetchWithAuth<TranslationsResponse>('/api/manage-translations', {
+  ): Promise<ManageTranslationsResponse> => {
+    return fetchWithAuth<ManageTranslationsResponse>('/api/manage-translations', {
       method: 'PUT',
       body: JSON.stringify(data),
     })
@@ -197,8 +198,8 @@ export const useApi = () => {
 
   const translateAllManageTranslations = async (
     data: TranslateAllTranslationsRequest,
-  ): Promise<TranslationsResponse> => {
-    return fetchWithAuth<TranslationsResponse>('/api/manage-translations/translate-all', {
+  ): Promise<ManageTranslationsResponse> => {
+    return fetchWithAuth<ManageTranslationsResponse>('/api/manage-translations/translate-all', {
       method: 'POST',
       body: JSON.stringify(data),
     })
@@ -206,8 +207,8 @@ export const useApi = () => {
 
   const translateKeyManageTranslations = async (
     data: TranslateSingleTranslationRequest,
-  ): Promise<TranslationsResponse> => {
-    return fetchWithAuth<TranslationsResponse>('/api/manage-translations/translate-key', {
+  ): Promise<ManageTranslationsResponse> => {
+    return fetchWithAuth<ManageTranslationsResponse>('/api/manage-translations/translate-key', {
       method: 'POST',
       body: JSON.stringify(data),
     })
