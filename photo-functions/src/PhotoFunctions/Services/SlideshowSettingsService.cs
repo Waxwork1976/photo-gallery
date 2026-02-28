@@ -9,10 +9,13 @@ public sealed class SlideshowSettingsService : ISlideshowSettingsService
     private const string BlobName = "settings/slideshow.json";
     private const int DefaultPhotoCount = 8;
     private const int DefaultIntervalSeconds = 4;
+    private const double DefaultTransitionSeconds = 0.8;
     private const int MinPhotoCount = 1;
     private const int MaxPhotoCount = 100;
     private const int MinIntervalSeconds = 1;
     private const int MaxIntervalSeconds = 120;
+    private const double MinTransitionSeconds = 0.0;
+    private const double MaxTransitionSeconds = 5.0;
 
     private static readonly JsonSerializerOptions JsonOptions = new(JsonSerializerDefaults.Web)
     {
@@ -54,11 +57,13 @@ public sealed class SlideshowSettingsService : ISlideshowSettingsService
         {
             PhotoCount = DefaultPhotoCount,
             IntervalSeconds = DefaultIntervalSeconds,
+            TransitionSeconds = DefaultTransitionSeconds,
         };
 
     private static void NormalizeDocument(SlideshowSettingsDocument document)
     {
         document.PhotoCount = Math.Clamp(document.PhotoCount, MinPhotoCount, MaxPhotoCount);
         document.IntervalSeconds = Math.Clamp(document.IntervalSeconds, MinIntervalSeconds, MaxIntervalSeconds);
+        document.TransitionSeconds = Math.Clamp(document.TransitionSeconds, MinTransitionSeconds, MaxTransitionSeconds);
     }
 }

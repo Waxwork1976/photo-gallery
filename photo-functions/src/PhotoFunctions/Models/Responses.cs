@@ -64,7 +64,8 @@ public sealed record TranslationsResponse(
 
 public sealed record SlideshowSettingsResponse(
     int PhotoCount,
-    int IntervalSeconds
+    int IntervalSeconds,
+    double TransitionSeconds
 );
 
 /// <summary>Validated user information extracted from a JWT.</summary>

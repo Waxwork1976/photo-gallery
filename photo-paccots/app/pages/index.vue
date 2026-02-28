@@ -15,6 +15,8 @@ const folderRootLabels = ref<Record<string, string>>({})
 const selectedFolderPath = ref<string | null>(null)
 const slideshowIntervalSeconds = ref(4)
 const slideshowPhotoCount = ref(8)
+const slideshowTransitionSeconds = ref(0.8)
+const slideshowSeed = ref(0)
 
 const fetchImages = async () => {
   loading.value = true
@@ -48,9 +50,11 @@ const fetchSlideshowSettings = async () => {
     const settings = await api.getSlideshowSettings()
     slideshowPhotoCount.value = Math.max(1, settings.photoCount)
     slideshowIntervalSeconds.value = Math.max(1, settings.intervalSeconds)
+    slideshowTransitionSeconds.value = Math.max(0, settings.transitionSeconds ?? 0.8)
   } catch {
     slideshowPhotoCount.value = 8
     slideshowIntervalSeconds.value = 4
+    slideshowTransitionSeconds.value = 0.8
   }
 }
 
@@ -81,6 +85,15 @@ const imageInFolderSubtree = (img: ImageDto, selected: string) => {
 }
 
 const imagesForSubtree = (path: string) => images.value.filter(img => imageInFolderSubtree(img, path))
+
+const shuffled = (input: ImageDto[]) => {
+  const arr = [...input]
+  for (let i = arr.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1))
+    ;[arr[i], arr[j]] = [arr[j]!, arr[i]!]
+  }
+  return arr
+}
 
 const treeIndex = computed(() => {
   const map = new Map<string, FolderTreeNodeDto>()
@@ -135,6 +148,16 @@ const slideshowSourceImages = computed(() => {
   return images.value
 })
 
+watch([slideshowSourceImages, slideshowPhotoCount], () => {
+  slideshowSeed.value++
+}, { immediate: true })
+
+const orderedSlideshowImages = computed(() => {
+  void slideshowSeed.value
+  const max = Math.max(1, slideshowPhotoCount.value)
+  return shuffled(slideshowSourceImages.value).slice(0, max)
+})
+
 const leafImages = computed(() => {
   if (viewMode.value !== 'leaf' || !selectedFolderPath.value) return []
   return imagesForSubtree(selectedFolderPath.value)
@@ -177,6 +200,13 @@ const folderCards = computed(() => {
   }))
 })
 
+const pageBackgroundImageUrl = computed(() => {
+  if (viewMode.value === 'leaf') {
+    return leafImages.value[0]?.thumbnailUrl ?? null
+  }
+  return orderedSlideshowImages.value[0]?.thumbnailUrl ?? null
+})
+
 onMounted(() => {
   fetchImages()
   fetchFolderTree()
@@ -189,7 +219,20 @@ useHead({
 </script>
 
 <template>
-  <div>
+  <div class="relative isolate">
+    <div
+      v-if="pageBackgroundImageUrl"
+      class="pointer-events-none fixed inset-0 -z-10"
+      aria-hidden="true"
+    >
+      <img
+        :src="pageBackgroundImageUrl"
+        alt=""
+        class="h-full w-full object-cover opacity-[0.16] saturate-60 blur-[1px]"
+      >
+      <div class="absolute inset-0 bg-emerald-100/30" />
+    </div>
+
     <!-- Hero -->
     <section class="mb-10 text-center">
       <h1 class="text-3xl font-bold tracking-tight text-stone-900 sm:text-4xl">
@@ -237,9 +280,10 @@ useHead({
 
         <template v-else>
           <GalleryRandomSlideshow
-            :images="slideshowSourceImages"
+            :images="orderedSlideshowImages"
             :interval-seconds="slideshowIntervalSeconds"
             :max-photos="slideshowPhotoCount"
+            :transition-seconds="slideshowTransitionSeconds"
           />
 
           <GalleryFolderCardsGrid

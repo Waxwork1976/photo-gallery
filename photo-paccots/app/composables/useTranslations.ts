@@ -51,6 +51,7 @@ const defaultEn: TranslationDictionary = {
   'settings.subtitle': 'Configure slideshow behavior used in the gallery.',
   'settings.photoCount': 'Number of photos in slideshow',
   'settings.intervalSeconds': 'Slide interval (seconds)',
+  'settings.transitionSeconds': 'Fade transition (seconds)',
   'settings.loadError': 'Failed to load settings.',
   'settings.saveError': 'Failed to save settings.',
   'settings.saveSuccess': 'Settings saved.',

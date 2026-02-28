@@ -20,6 +20,7 @@ const success = ref<string | null>(null)
 
 const photoCount = ref(8)
 const intervalSeconds = ref(4)
+const transitionSeconds = ref(0.8)
 
 const load = async () => {
   loading.value = true
@@ -29,6 +30,7 @@ const load = async () => {
     const settings = await api.getManageSlideshowSettings()
     photoCount.value = settings.photoCount
     intervalSeconds.value = settings.intervalSeconds
+    transitionSeconds.value = settings.transitionSeconds
   } catch (err: unknown) {
     const detail = (err as { message?: string })?.message ?? ''
     error.value = `${t('settings.loadError')} ${detail}`
@@ -42,15 +44,20 @@ const save = async () => {
   error.value = null
   success.value = null
 
+  const normalizedInterval = Math.max(1, Math.floor(intervalSeconds.value || 1))
+  const normalizedTransition = Math.max(0, Number(transitionSeconds.value || 0))
+
   const payload = {
     photoCount: Math.max(1, Math.floor(photoCount.value || 1)),
-    intervalSeconds: Math.max(1, Math.floor(intervalSeconds.value || 1)),
+    intervalSeconds: normalizedInterval,
+    transitionSeconds: Math.min(normalizedTransition, normalizedInterval),
   }
 
   try {
     const settings = await api.updateManageSlideshowSettings(payload)
     photoCount.value = settings.photoCount
     intervalSeconds.value = settings.intervalSeconds
+    transitionSeconds.value = settings.transitionSeconds
     success.value = t('settings.saveSuccess')
   } catch (err: unknown) {
     const detail = (err as { message?: string })?.message ?? ''
@@ -61,6 +68,13 @@ const save = async () => {
 }
 
 onMounted(load)
+
+watch(intervalSeconds, (nextInterval) => {
+  const safeInterval = Math.max(1, Number(nextInterval || 1))
+  if (transitionSeconds.value > safeInterval) {
+    transitionSeconds.value = safeInterval
+  }
+})
 </script>
 
 <template>
@@ -87,7 +101,7 @@ onMounted(load)
         {{ success }}
       </p>
 
-      <div v-if="!loading" class="grid gap-4 sm:grid-cols-2">
+      <div v-if="!loading" class="grid gap-4 sm:grid-cols-3">
         <label class="block">
           <span class="block text-xs font-medium text-stone-600">{{ t('settings.photoCount') }}</span>
           <input
@@ -104,6 +118,18 @@ onMounted(load)
             v-model.number="intervalSeconds"
             type="number"
             min="1"
+            class="mt-1 block w-full rounded-md border border-stone-300 px-2 py-1.5 text-sm focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500"
+          >
+        </label>
+
+        <label class="block">
+          <span class="block text-xs font-medium text-stone-600">{{ t('settings.transitionSeconds') }}</span>
+          <input
+            v-model.number="transitionSeconds"
+            type="number"
+            min="0"
+            step="0.1"
+            :max="Math.max(1, intervalSeconds || 1)"
             class="mt-1 block w-full rounded-md border border-stone-300 px-2 py-1.5 text-sm focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500"
           >
         </label>
