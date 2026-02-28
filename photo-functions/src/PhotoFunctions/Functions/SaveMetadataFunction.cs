@@ -136,8 +136,16 @@ public sealed class SaveMetadataFunction
     {
         try
         {
-            var document = await _folderTreeService.GetDocumentAsync();
             var entities = await _tableService.ListAllAsync();
+            var tagsByImage = entities
+                .Select(entity => (entity.Tags ?? string.Empty)
+                    .Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries))
+                .ToArray();
+
+            // Keep tree/rules in sync with current tags before recomputing assignments.
+            var regenerated = _folderTreeService.GenerateDocumentFromImageTags(tagsByImage);
+            await _folderTreeService.SaveDocumentAsync(regenerated);
+            var document = await _folderTreeService.GetDocumentAsync();
 
             var updated = 0;
             foreach (var entity in entities)

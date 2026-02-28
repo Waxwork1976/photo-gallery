@@ -35,8 +35,16 @@ public sealed class RecomputeFolderAssignmentsFunction
         if (authError is not null)
             return authError;
 
-        var document = await _folderTreeService.GetDocumentAsync();
         var entities = await _tableService.ListAllAsync();
+        var tagsByImage = entities
+            .Select(entity => (entity.Tags ?? string.Empty)
+                .Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries))
+            .ToArray();
+
+        // Always rebuild folder structure from current tags before assignment recompute.
+        var regenerated = _folderTreeService.GenerateDocumentFromImageTags(tagsByImage);
+        await _folderTreeService.SaveDocumentAsync(regenerated);
+        var document = await _folderTreeService.GetDocumentAsync();
 
         var updated = 0;
         foreach (var entity in entities)
@@ -57,7 +65,10 @@ public sealed class RecomputeFolderAssignmentsFunction
             updated++;
         }
 
-        _logger.LogInformation("Recomputed folder assignments for {Updated}/{Total} images", updated, entities.Count);
+        _logger.LogInformation(
+            "Regenerated folder tree and recomputed assignments for {Updated}/{Total} images",
+            updated,
+            entities.Count);
 
         return new OkObjectResult(new
         {
