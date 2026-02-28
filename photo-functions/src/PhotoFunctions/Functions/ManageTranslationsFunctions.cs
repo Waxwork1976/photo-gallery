@@ -33,7 +33,7 @@ public sealed class ManageTranslationsFunctions
             return authError;
 
         var document = await _translationService.GetDocumentAsync();
-        return new OkObjectResult(new TranslationsResponse(document.Locales));
+        return new OkObjectResult(new ManageTranslationsResponse(document.Locales));
     }
 
     [Function("manage-translations-put")]
@@ -64,7 +64,7 @@ public sealed class ManageTranslationsFunctions
         await _translationService.SaveDocumentAsync(document);
 
         var persisted = await _translationService.GetDocumentAsync();
-        return new OkObjectResult(new TranslationsResponse(persisted.Locales));
+        return new OkObjectResult(new ManageTranslationsResponse(persisted.Locales));
     }
 
     [Function("manage-translations-translate-all")]
@@ -99,8 +99,8 @@ public sealed class ManageTranslationsFunctions
         EnsureLocaleDictionaries(body.Locales);
         var sourceDictionary = body.Locales[sourceLocale];
         var sourceItems = sourceDictionary
-            .Where(kv => !string.IsNullOrWhiteSpace(kv.Key) && !string.IsNullOrWhiteSpace(kv.Value))
-            .Select(kv => (Key: kv.Key.Trim(), Value: kv.Value))
+            .Where(kv => !string.IsNullOrWhiteSpace(kv.Key) && !string.IsNullOrWhiteSpace(kv.Value?.Value))
+            .Select(kv => (Key: kv.Key.Trim(), Value: kv.Value!.Value))
             .ToArray();
 
         if (sourceItems.Length == 0)
@@ -119,10 +119,29 @@ public sealed class ManageTranslationsFunctions
                     sourceTexts);
 
                 for (var i = 0; i < keys.Length; i++)
-                    body.Locales[targetLocale][keys[i]] = translatedTexts[i];
+                {
+                    if (!body.Locales[targetLocale].TryGetValue(keys[i], out var existing))
+                    {
+                        body.Locales[targetLocale][keys[i]] = new TranslationEntry
+                        {
+                            Value = translatedTexts[i],
+                            AutoTranslate = true
+                        };
+                        continue;
+                    }
+
+                    if (!existing.AutoTranslate)
+                        continue;
+
+                    body.Locales[targetLocale][keys[i]] = new TranslationEntry
+                    {
+                        Value = translatedTexts[i],
+                        AutoTranslate = existing.AutoTranslate
+                    };
+                }
             }
 
-            return new OkObjectResult(new TranslationsResponse(body.Locales));
+            return new OkObjectResult(new ManageTranslationsResponse(body.Locales));
         }
         catch (InvalidOperationException ex)
         {
@@ -176,7 +195,7 @@ public sealed class ManageTranslationsFunctions
 
         EnsureLocaleDictionaries(body.Locales);
         var sourceDictionary = body.Locales[sourceLocale];
-        var sourceText = sourceDictionary.GetValueOrDefault(key)?.Trim();
+        var sourceText = sourceDictionary.GetValueOrDefault(key)?.Value?.Trim();
         if (string.IsNullOrWhiteSpace(sourceText))
             return new BadRequestObjectResult(new ErrorResponse($"Source text is empty for key '{key}'"));
 
@@ -188,10 +207,27 @@ public sealed class ManageTranslationsFunctions
                     sourceLocale,
                     targetLocale,
                     [sourceText]);
-                body.Locales[targetLocale][key] = translated[0];
+                if (!body.Locales[targetLocale].TryGetValue(key, out var existing))
+                {
+                    body.Locales[targetLocale][key] = new TranslationEntry
+                    {
+                        Value = translated[0],
+                        AutoTranslate = true
+                    };
+                    continue;
+                }
+
+                if (!existing.AutoTranslate)
+                    continue;
+
+                body.Locales[targetLocale][key] = new TranslationEntry
+                {
+                    Value = translated[0],
+                    AutoTranslate = existing.AutoTranslate
+                };
             }
 
-            return new OkObjectResult(new TranslationsResponse(body.Locales));
+            return new OkObjectResult(new ManageTranslationsResponse(body.Locales));
         }
         catch (InvalidOperationException ex)
         {
@@ -227,12 +263,12 @@ public sealed class ManageTranslationsFunctions
             .ToList();
     }
 
-    private static void EnsureLocaleDictionaries(Dictionary<string, Dictionary<string, string>> locales)
+    private static void EnsureLocaleDictionaries(Dictionary<string, Dictionary<string, TranslationEntry>> locales)
     {
         foreach (var locale in SupportedLocales)
         {
             if (!locales.TryGetValue(locale, out var dictionary) || dictionary is null)
-                locales[locale] = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+                locales[locale] = new Dictionary<string, TranslationEntry>(StringComparer.OrdinalIgnoreCase);
         }
     }
 

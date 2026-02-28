@@ -35,20 +35,20 @@ public sealed record ManageFolderTreeRequest(
 );
 
 public sealed record ManageTranslationsRequest(
-    Dictionary<string, Dictionary<string, string>> Locales
+    Dictionary<string, Dictionary<string, TranslationEntry>> Locales
 );
 
 public sealed record TranslateAllTranslationsRequest(
     string SourceLocale,
     string[]? TargetLocales,
-    Dictionary<string, Dictionary<string, string>> Locales
+    Dictionary<string, Dictionary<string, TranslationEntry>> Locales
 );
 
 public sealed record TranslateSingleTranslationRequest(
     string SourceLocale,
     string Key,
     string[]? TargetLocales,
-    Dictionary<string, Dictionary<string, string>> Locales
+    Dictionary<string, Dictionary<string, TranslationEntry>> Locales
 );
 
 public sealed record ManageSlideshowSettingsRequest(

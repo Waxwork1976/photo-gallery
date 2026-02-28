@@ -8,6 +8,7 @@ const defaultEn: TranslationDictionary = {
   'nav.gallery': 'Gallery',
   'nav.upload': 'Upload',
   'nav.manage': 'Manage',
+  'footer.thanksTo': 'Thanks to..',
   'auth.signIn': 'Sign in',
   'auth.signOut': 'Sign out',
 
@@ -77,6 +78,17 @@ const defaultEn: TranslationDictionary = {
   'translations.updatingOne': 'Updating...',
   'translations.successUpdateAll': 'All translations updated in draft.',
   'translations.successUpdateOne': 'Translation updated in draft.',
+  'translations.autoTranslateOn': 'Auto-translation enabled (click to lock)',
+  'translations.autoTranslateOff': 'Auto-translation locked (click to unlock)',
+
+  'poweredBy.title': 'Thanks to:',
+  'poweredBy.subtitle': 'Technologies and APIs used by Photo Paccots.',
+  'poweredBy.logoTitle': 'Website logo',
+  'poweredBy.logoDescription': 'Photo Paccots visual brand mark.',
+  'poweredBy.appApis': 'App API endpoints',
+  'poweredBy.externalApis': 'External APIs and platforms',
+  'poweredBy.publicEndpoint': 'Public endpoint',
+  'poweredBy.authEndpoint': 'Auth required',
 }
 
 const defaultLocales: Record<SupportedLocale, TranslationDictionary> = {

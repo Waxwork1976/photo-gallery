@@ -1,5 +1,6 @@
 using System.Net.Http.Json;
 using System.Text.Json;
+using System.Text.RegularExpressions;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using PhotoFunctions.Configuration;
@@ -8,6 +9,7 @@ namespace PhotoFunctions.Services;
 
 public sealed class TranslatorService : ITranslatorService
 {
+    private static readonly Regex PlaceholderRegex = new(@"\{[^{}]+\}", RegexOptions.Compiled);
     private readonly HttpClient _httpClient;
     private readonly TranslatorOptions _options;
     private readonly ILogger<TranslatorService> _logger;
@@ -34,7 +36,12 @@ public sealed class TranslatorService : ITranslatorService
 
         var endpoint = _options.Endpoint.TrimEnd('/');
         var uri = $"{endpoint}/translate?api-version=3.0&from={Uri.EscapeDataString(sourceLocale)}&to={Uri.EscapeDataString(targetLocale)}";
-        var body = texts.Select(text => new TranslationInput(text)).ToArray();
+        var protectedPayloads = texts
+            .Select(ProtectPlaceholders)
+            .ToArray();
+        var body = protectedPayloads
+            .Select(p => new TranslationInput(p.ProtectedText))
+            .ToArray();
 
         using var request = new HttpRequestMessage(HttpMethod.Post, uri);
         request.Headers.Add("Ocp-Apim-Subscription-Key", _options.ApiKey);
@@ -68,7 +75,11 @@ public sealed class TranslatorService : ITranslatorService
         }
 
         return translated
-            .Select(item => item.Translations.FirstOrDefault()?.Text ?? string.Empty)
+            .Select((item, idx) =>
+            {
+                var translatedText = item.Translations.FirstOrDefault()?.Text ?? string.Empty;
+                return RestorePlaceholders(translatedText, protectedPayloads[idx].TokenToPlaceholder);
+            })
             .ToArray();
     }
 
@@ -89,4 +100,32 @@ public sealed class TranslatorService : ITranslatorService
     private sealed record TranslationItem(
         string Text,
         string To);
+
+    private static (string ProtectedText, Dictionary<string, string> TokenToPlaceholder) ProtectPlaceholders(string text)
+    {
+        var map = new Dictionary<string, string>(StringComparer.Ordinal);
+        var index = 0;
+        var protectedText = PlaceholderRegex.Replace(text, match =>
+        {
+            var token = $"__PH_{index}__";
+            map[token] = match.Value;
+            index++;
+            return token;
+        });
+
+        return (protectedText, map);
+    }
+
+    private static string RestorePlaceholders(string text, Dictionary<string, string> tokenToPlaceholder)
+    {
+        if (tokenToPlaceholder.Count == 0)
+            return text;
+
+        var restored = text;
+        foreach (var kv in tokenToPlaceholder)
+        {
+            restored = restored.Replace(kv.Key, kv.Value, StringComparison.Ordinal);
+        }
+        return restored;
+    }
 }

@@ -1,8 +1,8 @@
 <template>
-  <nav class="mb-6 flex flex-wrap gap-2">
+  <nav class="mb-6 flex items-center gap-2 overflow-x-auto pb-1">
     <NuxtLink
       to="/manage"
-      class="ui-focus-ring ui-transition-color inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-sm font-medium"
+      class="ui-focus-ring ui-transition-color inline-flex items-center gap-1.5 whitespace-nowrap rounded-lg px-4 py-1.5 text-sm font-medium"
       active-class="bg-emerald-100 text-emerald-800"
       exact-active-class="bg-emerald-100 text-emerald-800"
       :class="$route.path === '/manage' ? '' : 'bg-stone-100 text-stone-700 hover:bg-stone-200'"
@@ -12,7 +12,7 @@
     </NuxtLink>
     <NuxtLink
       to="/manage-translations"
-      class="ui-focus-ring ui-transition-color inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-sm font-medium"
+      class="ui-focus-ring ui-transition-color inline-flex items-center gap-1.5 whitespace-nowrap rounded-lg px-4 py-1.5 text-sm font-medium"
       active-class="bg-emerald-100 text-emerald-800"
       :class="$route.path === '/manage-translations' ? '' : 'bg-stone-100 text-stone-700 hover:bg-stone-200'"
     >
@@ -21,7 +21,7 @@
     </NuxtLink>
     <NuxtLink
       to="/manage-settings"
-      class="ui-focus-ring ui-transition-color inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-sm font-medium"
+      class="ui-focus-ring ui-transition-color inline-flex items-center gap-1.5 whitespace-nowrap rounded-lg px-4 py-1.5 text-sm font-medium"
       active-class="bg-emerald-100 text-emerald-800"
       :class="$route.path === '/manage-settings' ? '' : 'bg-stone-100 text-stone-700 hover:bg-stone-200'"
     >

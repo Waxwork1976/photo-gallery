@@ -9,7 +9,7 @@ const { t, locale, setLocale, supportedLocales } = useTranslations()
 
 <template>
   <header class="sticky top-0 z-40 border-b border-stone-200 bg-white/90 backdrop-blur-md">
-    <nav class="mx-auto flex max-w-7xl items-center justify-between px-4 py-3 sm:px-6 lg:px-8">
+    <nav class="mx-auto flex max-w-[88rem] items-center justify-between px-4 py-3 sm:px-6 lg:px-8">
       <!-- Logo / Brand -->
       <NuxtLink to="/" class="ui-focus-ring ui-transition-color flex items-center gap-2 rounded-md text-lg font-semibold text-stone-900 hover:text-emerald-700">
         <CameraIcon class="h-6 w-6 text-emerald-600" />
@@ -17,15 +17,15 @@ const { t, locale, setLocale, supportedLocales } = useTranslations()
       </NuxtLink>
 
       <!-- Desktop nav -->
-      <div class="hidden items-center gap-6 sm:flex">
-        <NuxtLink to="/" class="ui-focus-ring ui-transition-color rounded-md text-sm font-medium text-stone-600 hover:text-emerald-700">
+      <div class="hidden items-center gap-4 lg:gap-5 sm:flex">
+        <NuxtLink to="/" class="ui-focus-ring ui-transition-color whitespace-nowrap rounded-md text-sm font-medium text-stone-600 hover:text-emerald-700">
           {{ t('nav.gallery') }}
         </NuxtLink>
 
         <NuxtLink
           v-if="isAuthenticated"
           to="/upload"
-          class="ui-focus-ring ui-transition-color rounded-md text-sm font-medium text-stone-600 hover:text-emerald-700"
+          class="ui-focus-ring ui-transition-color whitespace-nowrap rounded-md text-sm font-medium text-stone-600 hover:text-emerald-700"
         >
           {{ t('nav.upload') }}
         </NuxtLink>
@@ -33,7 +33,7 @@ const { t, locale, setLocale, supportedLocales } = useTranslations()
         <NuxtLink
           v-if="isAuthenticated"
           to="/manage"
-          class="ui-focus-ring ui-transition-color rounded-md text-sm font-medium text-stone-600 hover:text-emerald-700"
+          class="ui-focus-ring ui-transition-color whitespace-nowrap rounded-md text-sm font-medium text-stone-600 hover:text-emerald-700"
         >
           {{ t('nav.manage') }}
         </NuxtLink>
