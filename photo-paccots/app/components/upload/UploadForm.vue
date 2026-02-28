@@ -23,7 +23,9 @@ const uploadSuccess = ref(false)
 // Plant identification
 const isIdentifying = ref(false)
 const identifyError = ref<string | null>(null)
+const identifyLowConfidence = ref<string | null>(null)
 const identificationDone = ref(false)
+const lastIdentificationType = ref<'plant' | 'bird' | null>(null)
 
 /** Derive tags array from comma-separated string. */
 const tags = computed(() =>
@@ -50,6 +52,7 @@ const identifyPlant = async () => {
 
   isIdentifying.value = true
   identifyError.value = null
+  identifyLowConfidence.value = null
 
   try {
     const response = await api.identifyPlant([file.value])
@@ -87,6 +90,7 @@ const identifyPlant = async () => {
       tagsInput.value = Array.from(nextTags).join(', ')
 
       identificationDone.value = true
+      lastIdentificationType.value = 'plant'
     } else {
       identifyError.value = 'No plant identified in this image.'
     }
@@ -94,6 +98,59 @@ const identifyPlant = async () => {
     const message = err instanceof Error
       ? err.message
       : (err as { message?: string })?.message ?? 'Identification failed'
+    identifyError.value = message
+  } finally {
+    isIdentifying.value = false
+  }
+}
+
+const identifyBird = async () => {
+  if (!file.value) return
+
+  isIdentifying.value = true
+  identifyError.value = null
+  identifyLowConfidence.value = null
+
+  try {
+    const response = await api.identifyBird(file.value)
+    const topResult = response.topResult ?? response.results?.[0] ?? null
+
+    if (!topResult) {
+      identifyError.value = 'No bird identified in this image.'
+      return
+    }
+
+    const score = topResult.probability
+    const minScore = response.minProbability ?? 0.5
+    if (!response.accepted || score < minScore) {
+      identifyLowConfidence.value = `Bird result confidence (${Math.round(score * 100)}%) is below threshold (${Math.round(minScore * 100)}%).`
+      identificationDone.value = false
+      lastIdentificationType.value = null
+      return
+    }
+
+    const userName = user.value?.name ?? 'unknown'
+    title.value = `${formatDateTime()}-${topResult.scientificName}-${userName}`
+    description.value = `${topResult.scientificName} | Confidence: ${Math.round(score * 100)}%`
+
+    const orderedTags = [
+      'bird',
+      topResult.scientificName,
+    ]
+    const nextTags = new Set<string>()
+    for (const t of orderedTags) {
+      const v = t?.trim()
+      if (v)
+        nextTags.add(v)
+    }
+    tagsInput.value = Array.from(nextTags).join(', ')
+
+    identificationDone.value = true
+    lastIdentificationType.value = 'bird'
+  } catch (err: unknown) {
+    const message = err instanceof Error
+      ? err.message
+      : (err as { message?: string })?.message ?? 'Bird identification failed'
     identifyError.value = message
   } finally {
     isIdentifying.value = false
@@ -108,6 +165,8 @@ const onFileChange = (e: Event) => {
   validationError.value = null
   identificationDone.value = false
   identifyError.value = null
+  identifyLowConfidence.value = null
+  lastIdentificationType.value = null
 
   if (!ALLOWED_TYPES.includes(selected.type)) {
     validationError.value = `Invalid file type. Allowed: JPEG, PNG, WebP, GIF.`
@@ -147,6 +206,8 @@ const removeFile = () => {
   file.value = null
   identificationDone.value = false
   identifyError.value = null
+  identifyLowConfidence.value = null
+  lastIdentificationType.value = null
   if (preview.value) {
     URL.revokeObjectURL(preview.value)
     preview.value = null
@@ -246,12 +307,12 @@ onUnmounted(() => {
       {{ validationError }}
     </p>
 
-    <!-- Plant identification (shown when a file is selected) -->
+    <!-- Identification actions (shown when a file is selected) -->
     <div v-if="file && !state.isUploading && !uploadSuccess" class="space-y-3">
       <button
         type="button"
         class="flex w-full items-center justify-center gap-2 rounded-lg border-2 px-4 py-3 text-sm font-semibold transition-colors"
-        :class="identificationDone
+        :class="identificationDone && lastIdentificationType === 'plant'
           ? 'border-emerald-500 bg-emerald-50 text-emerald-700'
           : 'border-stone-200 bg-white text-stone-600 hover:border-emerald-300 hover:bg-emerald-50/50'"
         :disabled="isIdentifying"
@@ -272,10 +333,39 @@ onUnmounted(() => {
         </template>
       </button>
 
+      <button
+        type="button"
+        class="flex w-full items-center justify-center gap-2 rounded-lg border-2 px-4 py-3 text-sm font-semibold transition-colors"
+        :class="identificationDone && lastIdentificationType === 'bird'
+          ? 'border-sky-500 bg-sky-50 text-sky-700'
+          : 'border-stone-200 bg-white text-stone-600 hover:border-sky-300 hover:bg-sky-50/50'"
+        :disabled="isIdentifying"
+        @click="identifyBird"
+      >
+        <template v-if="isIdentifying">
+          <svg class="h-4 w-4 animate-spin" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+            <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4" />
+            <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
+          </svg>
+          Identifying bird...
+        </template>
+        <template v-else>
+          <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M3 12l2.5-1.25a6 6 0 016 0L14 12l2.5-1.25a6 6 0 016 0L21 12m-18 0l2.5 1.25a6 6 0 006 0L14 12m-11 0v3m18-3v3" />
+          </svg>
+          Identify bird
+        </template>
+      </button>
+
       <!-- Identification result -->
       <div v-if="identificationDone" class="rounded-lg bg-emerald-50 px-4 py-3 text-sm text-emerald-700">
-        Plant identified! Fields have been filled automatically.
+        {{ lastIdentificationType === 'bird' ? 'Bird identified!' : 'Plant identified!' }} Fields have been filled automatically.
       </div>
+
+      <!-- Low-confidence message -->
+      <p v-if="identifyLowConfidence" class="rounded-lg bg-yellow-50 px-4 py-2 text-sm text-yellow-700">
+        {{ identifyLowConfidence }}
+      </p>
 
       <!-- Identification error -->
       <p v-if="identifyError" class="rounded-lg bg-amber-50 px-4 py-2 text-sm text-amber-700">

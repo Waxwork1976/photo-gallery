@@ -11,6 +11,7 @@ import type {
   UpdateMetadataRequest,
   UpdateMetadataResponse,
 } from '~/types/image'
+import type { BirdIdentificationResponse } from '~/types/bird'
 import type { PlantNetResponse } from '~/types/plantnet'
 
 interface ApiError {
@@ -229,6 +230,44 @@ export const useApi = () => {
     return response.json() as Promise<PlantNetResponse>
   }
 
+  /** Identify a bird from an image via the RapidAPI bird-classifier pass-through endpoint. */
+  const identifyBird = async (
+    image: File,
+  ): Promise<BirdIdentificationResponse> => {
+    const token = await getAccessToken()
+
+    const formData = new FormData()
+    formData.append('image', image)
+
+    const headers: Record<string, string> = {}
+    if (token) {
+      headers['Authorization'] = `Bearer ${token}`
+    }
+
+    const response = await fetch(`${baseUrl}/api/identify-bird`, {
+      method: 'POST',
+      headers,
+      body: formData,
+    })
+
+    if (!response.ok) {
+      let detail = ''
+      try {
+        const body = await response.json()
+        detail = body?.error ?? body?.message ?? JSON.stringify(body)
+      } catch {
+        detail = response.statusText || 'Unknown error'
+      }
+      const error: ApiError = {
+        message: `API error (${response.status}): ${detail}`,
+        statusCode: response.status,
+      }
+      throw error
+    }
+
+    return response.json() as Promise<BirdIdentificationResponse>
+  }
+
   return {
     listImages,
     getFolderTree,
@@ -242,5 +281,6 @@ export const useApi = () => {
     deleteImage,
     uploadToBlob,
     identifyPlant,
+    identifyBird,
   }
 }
