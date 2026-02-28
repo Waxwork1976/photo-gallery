@@ -10,6 +10,7 @@ const { user } = useAuth()
 const ALLOWED_TYPES = ['image/jpeg', 'image/png', 'image/webp', 'image/gif']
 const MAX_SIZE_MB = 10
 const MAX_SIZE_BYTES = MAX_SIZE_MB * 1024 * 1024
+const GEOLOCATION_TIMEOUT_MS = 5000
 
 // Form fields
 const file = ref<File | null>(null)
@@ -19,6 +20,8 @@ const description = ref('')
 const tagsInput = ref('')
 const validationError = ref<string | null>(null)
 const uploadSuccess = ref(false)
+const coordinates = ref<{ latitude: number, longitude: number } | null>(null)
+const coordinateSource = ref<'device' | 'exif' | null>(null)
 
 // Plant identification
 const isIdentifying = ref(false)
@@ -45,6 +48,140 @@ const formatDateTime = () => {
   const now = new Date()
   const pad = (n: number) => n.toString().padStart(2, '0')
   return `${now.getFullYear()}${pad(now.getMonth() + 1)}${pad(now.getDate())}-${pad(now.getHours())}${pad(now.getMinutes())}`
+}
+
+const formatCoordinates = (lat: number, lon: number) => {
+  return `${lat.toFixed(6)}, ${lon.toFixed(6)}`
+}
+
+const getDeviceCoordinates = async (): Promise<{ latitude: number, longitude: number } | null> => {
+  if (!import.meta.client || !navigator.geolocation) return null
+
+  return new Promise((resolve) => {
+    navigator.geolocation.getCurrentPosition(
+      (pos) => {
+        resolve({
+          latitude: pos.coords.latitude,
+          longitude: pos.coords.longitude,
+        })
+      },
+      () => resolve(null),
+      {
+        enableHighAccuracy: true,
+        timeout: GEOLOCATION_TIMEOUT_MS,
+        maximumAge: 0,
+      },
+    )
+  })
+}
+
+const getExifCoordinates = async (selected: File): Promise<{ latitude: number, longitude: number } | null> => {
+  if (!selected.type.includes('jpeg') && !selected.type.includes('jpg')) {
+    return null
+  }
+
+  const buffer = await selected.arrayBuffer()
+  const view = new DataView(buffer)
+
+  if (view.getUint16(0, false) !== 0xFFD8) return null
+
+  let offset = 2
+  while (offset + 4 < view.byteLength) {
+    if (view.getUint8(offset) !== 0xFF) break
+    const marker = view.getUint8(offset + 1)
+    const length = view.getUint16(offset + 2, false)
+
+    if (marker === 0xE1 && offset + 10 < view.byteLength) {
+      const exifHeader = String.fromCharCode(
+        view.getUint8(offset + 4),
+        view.getUint8(offset + 5),
+        view.getUint8(offset + 6),
+        view.getUint8(offset + 7),
+      )
+      if (exifHeader !== 'Exif') return null
+
+      const tiffOffset = offset + 10
+      const littleEndian = view.getUint16(tiffOffset, false) === 0x4949
+      const get16 = (pos: number) => view.getUint16(pos, littleEndian)
+      const get32 = (pos: number) => view.getUint32(pos, littleEndian)
+      const typeSize = (type: number) => {
+        if (type === 1 || type === 2 || type === 7) return 1
+        if (type === 3) return 2
+        if (type === 4 || type === 9) return 4
+        if (type === 5 || type === 10) return 8
+        return 0
+      }
+
+      const ifd0Offset = tiffOffset + get32(tiffOffset + 4)
+      if (ifd0Offset >= view.byteLength) return null
+
+      const entryCount = get16(ifd0Offset)
+      let gpsIfdOffset = 0
+      for (let i = 0; i < entryCount; i++) {
+        const entry = ifd0Offset + 2 + i * 12
+        const tag = get16(entry)
+        if (tag === 0x8825) {
+          gpsIfdOffset = tiffOffset + get32(entry + 8)
+          break
+        }
+      }
+      if (!gpsIfdOffset || gpsIfdOffset >= view.byteLength) return null
+
+      const gpsEntryCount = get16(gpsIfdOffset)
+      let latRef = ''
+      let lonRef = ''
+      let lat: [number, number, number] | null = null
+      let lon: [number, number, number] | null = null
+
+      for (let i = 0; i < gpsEntryCount; i++) {
+        const entry = gpsIfdOffset + 2 + i * 12
+        const tag = get16(entry)
+        const type = get16(entry + 2)
+        const count = get32(entry + 4)
+        const valueOrOffset = get32(entry + 8)
+        const valueByteLength = typeSize(type) * count
+        const valuePos = valueByteLength <= 4 ? entry + 8 : tiffOffset + valueOrOffset
+        if (valuePos < 0 || valuePos >= view.byteLength) continue
+
+        if (tag === 0x0001 && type === 2) {
+          latRef = String.fromCharCode(view.getUint8(valuePos)).trim()
+        }
+        if (tag === 0x0003 && type === 2) {
+          lonRef = String.fromCharCode(view.getUint8(valuePos)).trim()
+        }
+        if (tag === 0x0002 && type === 5 && count === 3 && valuePos + 24 <= view.byteLength) {
+          lat = [0, 1, 2].map((idx) => {
+            const numerator = get32(valuePos + idx * 8)
+            const denominator = get32(valuePos + idx * 8 + 4)
+            return denominator ? numerator / denominator : 0
+          }) as [number, number, number]
+        }
+        if (tag === 0x0004 && type === 5 && count === 3 && valuePos + 24 <= view.byteLength) {
+          lon = [0, 1, 2].map((idx) => {
+            const numerator = get32(valuePos + idx * 8)
+            const denominator = get32(valuePos + idx * 8 + 4)
+            return denominator ? numerator / denominator : 0
+          }) as [number, number, number]
+        }
+      }
+
+      if (!lat || !lon || !latRef || !lonRef) return null
+
+      const dmsToDecimal = (parts: [number, number, number], ref: string) => {
+        const value = parts[0] + parts[1] / 60 + parts[2] / 3600
+        return (ref === 'S' || ref === 'W') ? -value : value
+      }
+
+      return {
+        latitude: dmsToDecimal(lat, latRef),
+        longitude: dmsToDecimal(lon, lonRef),
+      }
+    }
+
+    offset += 2 + length
+  }
+
+  return null
 }
 
 const identifyPlant = async () => {
@@ -157,7 +294,7 @@ const identifyBird = async () => {
   }
 }
 
-const onFileChange = (e: Event) => {
+const onFileChange = async (e: Event) => {
   const input = e.target as HTMLInputElement
   const selected = input.files?.[0]
   if (!selected) return
@@ -167,6 +304,8 @@ const onFileChange = (e: Event) => {
   identifyError.value = null
   identifyLowConfidence.value = null
   lastIdentificationType.value = null
+  coordinates.value = null
+  coordinateSource.value = null
 
   if (!ALLOWED_TYPES.includes(selected.type)) {
     validationError.value = `Invalid file type. Allowed: JPEG, PNG, WebP, GIF.`
@@ -183,6 +322,19 @@ const onFileChange = (e: Event) => {
 
   if (preview.value) URL.revokeObjectURL(preview.value)
   preview.value = URL.createObjectURL(selected)
+
+  const deviceLocation = await getDeviceCoordinates()
+  if (deviceLocation) {
+    coordinates.value = deviceLocation
+    coordinateSource.value = 'device'
+    return
+  }
+
+  const exifLocation = await getExifCoordinates(selected)
+  if (exifLocation) {
+    coordinates.value = exifLocation
+    coordinateSource.value = 'exif'
+  }
 }
 
 const onDrop = (e: DragEvent) => {
@@ -208,6 +360,8 @@ const removeFile = () => {
   identifyError.value = null
   identifyLowConfidence.value = null
   lastIdentificationType.value = null
+  coordinates.value = null
+  coordinateSource.value = null
   if (preview.value) {
     URL.revokeObjectURL(preview.value)
     preview.value = null
@@ -226,6 +380,8 @@ const handleSubmit = async () => {
       title: title.value || file.value.name,
       description: description.value,
       tags: tags.value,
+      latitude: coordinates.value?.latitude,
+      longitude: coordinates.value?.longitude,
     })
 
     uploadSuccess.value = true
@@ -282,6 +438,9 @@ onUnmounted(() => {
         </div>
         <p class="mt-2 text-center text-xs text-stone-500">
           {{ file.name }} &mdash; {{ (file.size / (1024 * 1024)).toFixed(1) }} MB
+        </p>
+        <p v-if="coordinates" class="mt-1 text-center text-xs text-stone-500">
+          Location ({{ coordinateSource === 'device' ? 'device' : 'exif' }}): {{ formatCoordinates(coordinates.latitude, coordinates.longitude) }}
         </p>
       </div>
 

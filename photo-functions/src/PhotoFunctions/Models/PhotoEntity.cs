@@ -41,6 +41,8 @@ public sealed class PhotoEntity : ITableEntity
     public long SizeBytes { get; set; }
     public int Width { get; set; }
     public int Height { get; set; }
+    public double? Latitude { get; set; }
+    public double? Longitude { get; set; }
 
     // ----- Status flags -----
     public bool IsPublic { get; set; } = true;

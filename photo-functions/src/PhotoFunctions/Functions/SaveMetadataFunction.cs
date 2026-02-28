@@ -88,6 +88,8 @@ public sealed class SaveMetadataFunction
             SizeBytes = body.SizeBytes,
             Width = body.Width ?? thumbnail.Width,
             Height = body.Height ?? thumbnail.Height,
+            Latitude = body.Latitude,
+            Longitude = body.Longitude,
             IsPublic = true,
             Featured = false,
             SortOrder = 0,
@@ -98,6 +100,8 @@ public sealed class SaveMetadataFunction
 
         _logger.LogInformation("Saved metadata for blob {BlobName} as entity {RowKey}",
             body.BlobName, inserted.RowKey);
+
+        await RecomputeFolderAssignmentsBestEffortAsync();
 
         return new ObjectResult(new SaveMetadataResponse(true, inserted.RowKey, fullUrl, thumbnail.Url))
         {
@@ -126,5 +130,39 @@ public sealed class SaveMetadataFunction
             return (null, new ObjectResult(new ErrorResponse("User not authorized")) { StatusCode = StatusCodes.Status403Forbidden });
 
         return (oid, null);
+    }
+
+    private async Task RecomputeFolderAssignmentsBestEffortAsync()
+    {
+        try
+        {
+            var document = await _folderTreeService.GetDocumentAsync();
+            var entities = await _tableService.ListAllAsync();
+
+            var updated = 0;
+            foreach (var entity in entities)
+            {
+                var tags = (entity.Tags ?? string.Empty)
+                    .Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
+
+                var resolved = _folderTreeService.ResolveFoldersFromTags(tags, document);
+                var nextPrimary = resolved.PrimaryFolderPath;
+                var nextCsv = string.Join(",", resolved.FolderPaths);
+
+                if (entity.PrimaryFolderPath == nextPrimary && entity.FolderPathsCsv == nextCsv)
+                    continue;
+
+                entity.PrimaryFolderPath = nextPrimary;
+                entity.FolderPathsCsv = nextCsv;
+                await _tableService.UpdateAsync(entity);
+                updated++;
+            }
+
+            _logger.LogInformation("Auto-recomputed folder assignments after upload: {Updated}/{Total}", updated, entities.Count);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "Folder assignment auto-recompute failed after upload");
+        }
     }
 }

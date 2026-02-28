@@ -18,17 +18,20 @@ public sealed class DeleteImageFunction
     private readonly IJwtValidationService _jwtService;
     private readonly IPhotoTableService _tableService;
     private readonly IBlobStorageService _blobService;
+    private readonly IFolderTreeService _folderTreeService;
     private readonly ILogger<DeleteImageFunction> _logger;
 
     public DeleteImageFunction(
         IJwtValidationService jwtService,
         IPhotoTableService tableService,
         IBlobStorageService blobService,
+        IFolderTreeService folderTreeService,
         ILogger<DeleteImageFunction> logger)
     {
         _jwtService = jwtService;
         _tableService = tableService;
         _blobService = blobService;
+        _folderTreeService = folderTreeService;
         _logger = logger;
     }
 
@@ -62,6 +65,8 @@ public sealed class DeleteImageFunction
 
         await _tableService.DeleteAsync(id);
 
+        await RecomputeFolderAssignmentsBestEffortAsync();
+
         _logger.LogInformation("Deleted photo {RowKey}", id);
 
         return new OkObjectResult(new { success = true, id });
@@ -86,5 +91,39 @@ public sealed class DeleteImageFunction
             return (null, new ObjectResult(new ErrorResponse("User not authorized")) { StatusCode = StatusCodes.Status403Forbidden });
 
         return (principal, null);
+    }
+
+    private async Task RecomputeFolderAssignmentsBestEffortAsync()
+    {
+        try
+        {
+            var document = await _folderTreeService.GetDocumentAsync();
+            var entities = await _tableService.ListAllAsync();
+
+            var updated = 0;
+            foreach (var entity in entities)
+            {
+                var tags = (entity.Tags ?? string.Empty)
+                    .Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
+
+                var resolved = _folderTreeService.ResolveFoldersFromTags(tags, document);
+                var nextPrimary = resolved.PrimaryFolderPath;
+                var nextCsv = string.Join(",", resolved.FolderPaths);
+
+                if (entity.PrimaryFolderPath == nextPrimary && entity.FolderPathsCsv == nextCsv)
+                    continue;
+
+                entity.PrimaryFolderPath = nextPrimary;
+                entity.FolderPathsCsv = nextCsv;
+                await _tableService.UpdateAsync(entity);
+                updated++;
+            }
+
+            _logger.LogInformation("Auto-recomputed folder assignments after delete: {Updated}/{Total}", updated, entities.Count);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "Folder assignment auto-recompute failed after delete");
+        }
     }
 }

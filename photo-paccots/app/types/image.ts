@@ -12,6 +12,8 @@ export interface ImageDto {
   uploadedAt: string
   width: number
   height: number
+  latitude?: number
+  longitude?: number
   sizeBytes: number
   featured: boolean
 }
@@ -47,6 +49,8 @@ export interface SaveMetadataRequest {
   sizeBytes: number
   width?: number
   height?: number
+  latitude?: number
+  longitude?: number
 }
 
 /** Request body for PUT /api/update-metadata/{id} */
