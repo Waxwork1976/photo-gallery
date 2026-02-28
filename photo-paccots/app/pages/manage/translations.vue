@@ -30,9 +30,15 @@ const draft = ref<Record<SupportedLocale, Record<string, string>>>({
   it: {},
 })
 
-const orderedKeys = computed(() =>
-  Object.keys(defaultLocales.en).sort((a, b) => a.localeCompare(b)),
-)
+const orderedKeys = computed(() => {
+  const allKeys = new Set<string>(Object.keys(defaultLocales.en))
+  for (const locale of supportedLocales) {
+    for (const key of Object.keys(draft.value[locale] ?? {})) {
+      allKeys.add(key)
+    }
+  }
+  return [...allKeys].sort((a, b) => a.localeCompare(b))
+})
 
 const filteredKeys = computed(() => {
   const q = search.value.trim().toLowerCase()
@@ -46,12 +52,25 @@ const setValue = (key: string, value: string) => {
   draft.value[selectedLocale.value][key] = value
 }
 
+const normalizeLocales = (payload: unknown): Record<SupportedLocale, Record<string, string>> => {
+  const candidate = payload as
+    | { locales?: Partial<Record<SupportedLocale, Record<string, string>>>; Locales?: Partial<Record<SupportedLocale, Record<string, string>>> }
+    | undefined
+  const locales = candidate?.locales ?? candidate?.Locales
+  return {
+    en: { ...(locales?.en ?? {}) },
+    fr: { ...(locales?.fr ?? {}) },
+    de: { ...(locales?.de ?? {}) },
+    it: { ...(locales?.it ?? {}) },
+  }
+}
+
 const applyLocales = (locales: Record<SupportedLocale, Record<string, string>>) => {
   draft.value = {
-    en: { ...locales.en },
-    fr: { ...locales.fr },
-    de: { ...locales.de },
-    it: { ...locales.it },
+    en: { ...defaultLocales.en, ...locales.en },
+    fr: { ...defaultLocales.fr, ...locales.fr },
+    de: { ...defaultLocales.de, ...locales.de },
+    it: { ...defaultLocales.it, ...locales.it },
   }
 }
 
@@ -67,7 +86,7 @@ const load = async () => {
   success.value = null
   try {
     const res = await api.getManageTranslations()
-    applyLocales(res.locales)
+    applyLocales(normalizeLocales(res))
   } catch (err: unknown) {
     const detail = (err as { message?: string })?.message ?? ''
     error.value = `${t('translations.errorLoad')} ${detail}`
@@ -86,8 +105,9 @@ const save = async () => {
   success.value = null
   try {
     const res = await api.updateManageTranslations({ locales: draft.value })
-    applyLocales(res.locales)
-    setRemoteLocales(res.locales)
+    const locales = normalizeLocales(res)
+    applyLocales(locales)
+    setRemoteLocales(locales)
     success.value = t('translations.successSave')
   } catch (err: unknown) {
     const detail = (err as { message?: string })?.message ?? ''
@@ -107,7 +127,7 @@ const updateAllFromSourceLanguage = async () => {
       targetLocales: getTargetLocales(),
       locales: draft.value,
     })
-    applyLocales(res.locales)
+    applyLocales(normalizeLocales(res))
     success.value = t('translations.successUpdateAll')
   } catch (err: unknown) {
     const detail = (err as { message?: string })?.message ?? ''
@@ -128,7 +148,7 @@ const updateSingleKeyFromSourceLanguage = async (key: string) => {
       key,
       locales: draft.value,
     })
-    applyLocales(res.locales)
+    applyLocales(normalizeLocales(res))
     success.value = t('translations.successUpdateOne')
   } catch (err: unknown) {
     const detail = (err as { message?: string })?.message ?? ''
