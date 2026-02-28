@@ -2,6 +2,23 @@
 
 A personal nature and garden photography gallery built on Azure.
 
+## Recent Updates
+
+- **Gallery display modes:** Added dynamic gallery behavior with folder-aware rendering:
+  - random slideshow + child folder cards at root and intermediate levels
+  - full image grid at leaf folders
+  - optional `Year/Month` navigation mode built from currently selected species context
+- **Configurable slideshow settings:** Added admin settings page to control:
+  - number of photos
+  - slide interval
+  - fade transition duration (with guard so transition cannot exceed interval)
+- **Translation management upgrades:**
+  - placeholder protection for `{...}` tokens during machine translation
+  - per-translation lock (`autoTranslate`) to prevent overwriting manual edits
+  - lock icon in translation UI (green unlocked, red locked)
+- **Folder recomputation reliability:** Recompute flow now regenerates folder tree from tags, saves it, then recomputes assignments (including upload/delete and manual recompute action).
+- **Public credits page:** Added `/powered-by` page, linked from footer as `Thanks to..`.
+
 ## Architecture
 
 ```
@@ -29,7 +46,7 @@ PhotoPaccots/
 │   ├── app/
 │   │   ├── components/         # Vue components (gallery, upload, layout)
 │   │   ├── composables/        # useAuth, useApi, useUpload
-│   │   ├── pages/              # index (gallery), upload, auth/callback
+│   │   ├── pages/              # index, upload, manage, manage-translations, manage-settings, powered-by, auth/callback
 │   │   ├── plugins/            # MSAL client plugin
 │   │   └── middleware/         # Auth route guard
 │   ├── .env.example            # Environment template
@@ -179,9 +196,23 @@ Runs at `http://localhost:7071`.
 |----------|--------|------|-------------|
 | `/api/health` | GET | Public | Health check |
 | `/api/list-images` | GET | Public | List gallery images (with SAS read URLs) |
+| `/api/folder-tree` | GET | Public | Read folder tree and labels |
+| `/api/translations` | GET | Public | Read public UI translations |
+| `/api/slideshow-settings` | GET | Public | Read slideshow settings |
 | `/api/auth-validate` | POST | Bearer JWT | Validate token and check authorization |
 | `/api/generate-sas` | POST | Bearer JWT | Get a time-limited SAS URL for upload |
 | `/api/save-metadata` | POST | Bearer JWT | Save image metadata to Table Storage |
+| `/api/update-metadata/{id}` | PUT | Bearer JWT | Update metadata for one image |
+| `/api/delete-image/{id}` | DELETE | Bearer JWT | Delete image and metadata |
+| `/api/manage-images` | GET | Bearer JWT | List all images for admin |
+| `/api/manage-folder-tree` | GET/PUT | Bearer JWT | Read/update folder tree config |
+| `/api/recompute-folder-assignments` | POST | Bearer JWT | Regenerate folders and recompute assignments |
+| `/api/manage-translations` | GET/PUT | Bearer JWT | Read/update translations (with lock flags) |
+| `/api/manage-translations/translate-all` | POST | Bearer JWT | Auto-translate all eligible keys |
+| `/api/manage-translations/translate-key` | POST | Bearer JWT | Auto-translate one eligible key |
+| `/api/manage-slideshow-settings` | GET/PUT | Bearer JWT | Read/update slideshow settings |
+| `/api/identify-plant` | POST | Bearer JWT | Identify plant using PlantNet |
+| `/api/identify-bird` | POST | Bearer JWT | Identify bird using RapidAPI |
 
 ## Deployment
 
