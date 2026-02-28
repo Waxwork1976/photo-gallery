@@ -20,6 +20,8 @@ const defaultEn: TranslationDictionary = {
   'folders.root.photos': 'Photos',
   'folders.root.plants': 'Plants',
   'folders.root.birds': 'Birds',
+  'folders.mode.primary': 'Species',
+  'folders.mode.yearMonth': 'Year/Month',
 
   'upload.page.title': 'Upload a Photo',
   'upload.page.subtitle': 'Select an image, add some details, and share it with the gallery.',
