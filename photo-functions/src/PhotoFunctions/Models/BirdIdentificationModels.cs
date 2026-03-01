@@ -2,7 +2,11 @@ namespace PhotoFunctions.Models;
 
 public sealed record BirdPredictionItem(
     string ScientificName,
-    double Probability
+    double Probability,
+    Dictionary<string, string>? CommonNames = null,
+    string TaxonomyOrder = "",
+    string TaxonomyFamily = "",
+    string TaxonomyGenus = ""
 );
 
 public sealed record BirdIdentificationResponse(

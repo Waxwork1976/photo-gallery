@@ -8,6 +8,8 @@ A personal nature and garden photography gallery built on Azure.
   - random slideshow + child folder cards at root and intermediate levels
   - full image grid at leaf folders
   - optional `Year/Month` navigation mode built from currently selected species context
+- **Species metadata enrichment:** Added multilingual common-name enrichment (`en/fr/de/it`) and normalized taxonomy metadata for plants, birds, and insects.
+- **Search with suggestions:** Added search by common name and taxonomy with backend suggestions after 3 typed characters (gallery + manage).
 - **Configurable slideshow settings:** Added admin settings page to control:
   - number of photos
   - slide interval
@@ -17,6 +19,7 @@ A personal nature and garden photography gallery built on Azure.
   - per-translation lock (`autoTranslate`) to prevent overwriting manual edits
   - lock icon in translation UI (green unlocked, red locked)
 - **Folder recomputation reliability:** Recompute flow now regenerates folder tree from tags, saves it, then recomputes assignments (including upload/delete and manual recompute action).
+- **Common-name recomputation:** Added admin action/endpoint to recompute multilingual common names for existing images.
 - **Public credits page:** Added `/powered-by` page, linked from footer as `Thanks to..`.
 
 ## Architecture
@@ -34,7 +37,7 @@ Browser ──► Azure Storage (Static Website)    ──► Nuxt 3 SSG (HTML/J
 
 **Back-end:** Azure Functions (C# / .NET 8, consumption plan) providing a REST API for listing images, generating SAS upload URLs, and saving metadata.
 
-**Storage:** Images stored in a private Blob Storage container, served via time-limited SAS read tokens. Metadata (title, tags, description) stored in Table Storage.
+**Storage:** Images stored in a private Blob Storage container, served via time-limited SAS read tokens. Metadata (title, tags, description, species taxonomy, localized common names) stored in Table Storage.
 
 **Auth:** Microsoft Entra ID (single tenant). Only authorized users can upload; the gallery is public.
 
@@ -83,7 +86,7 @@ PhotoPaccots/
 
 ## Required Services
 
-To run the full application (gallery + upload + plant/bird identification), these services are required.
+To run the full application (gallery + upload + plant/bird/insect identification + multilingual common-name enrichment), these services are required.
 
 ### 1) Microsoft Azure
 
@@ -125,6 +128,7 @@ To run the full application (gallery + upload + plant/bird identification), thes
     - `Gemini__Model` (example: `gemini-3-flash-preview`)
     - `Gemini__BaseUrl` (expected: `https://generativelanguage.googleapis.com`)
     - `Gemini__TimeoutSeconds` (example: `30`)
+  - Also used to enrich multilingual common names (`en/fr/de/it`) for plants, birds, and insects.
 
 #### External API registration checklist
 
@@ -225,7 +229,10 @@ Runs at `http://localhost:7071`.
 | `/api/manage-slideshow-settings` | GET/PUT | Bearer JWT | Read/update slideshow settings |
 | `/api/identify-plant` | POST | Bearer JWT | Identify plant using PlantNet |
 | `/api/identify-bird` | POST | Bearer JWT | Identify bird using RapidAPI |
-| `/api/identify-insect` | POST | Bearer JWT | Identify insect using Gemini (returns common name + scientific taxonomy) |
+| `/api/identify-insect` | POST | Bearer JWT | Identify insect using Gemini (returns multilingual common names + scientific taxonomy) |
+| `/api/search-suggestions` | GET | Public | Search suggestions (common names + taxonomy), active from 3 characters |
+| `/api/manage-search-suggestions` | GET | Bearer JWT | Admin search suggestions across all images |
+| `/api/recompute-common-names` | POST | Bearer JWT | Recompute multilingual common names for existing images |
 
 ## Deployment
 

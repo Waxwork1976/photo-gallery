@@ -11,6 +11,7 @@ export interface PlantNetSpecies {
     scientificName: string
   }
   commonNames: string[]
+  commonNamesByLocale?: Record<string, string>
 }
 
 export interface PlantNetResult {

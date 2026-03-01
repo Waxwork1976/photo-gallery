@@ -26,17 +26,20 @@ public sealed class IdentifyBirdFunction
 
     private readonly IJwtValidationService _jwtService;
     private readonly IBirdIdentificationService _birdService;
+    private readonly ISpeciesCommonNameService _commonNameService;
     private readonly BirdApiOptions _birdOptions;
     private readonly ILogger<IdentifyBirdFunction> _logger;
 
     public IdentifyBirdFunction(
         IJwtValidationService jwtService,
         IBirdIdentificationService birdService,
+        ISpeciesCommonNameService commonNameService,
         IOptions<BirdApiOptions> birdOptions,
         ILogger<IdentifyBirdFunction> logger)
     {
         _jwtService = jwtService;
         _birdService = birdService;
+        _commonNameService = commonNameService;
         _birdOptions = birdOptions.Value;
         _logger = logger;
     }
@@ -74,13 +77,36 @@ public sealed class IdentifyBirdFunction
         {
             var results = await _birdService.IdentifyAsync(stream, file.FileName, file.ContentType);
             var topResult = results.FirstOrDefault();
-            var accepted = topResult is not null && topResult.Probability >= _birdOptions.MinProbability;
+            Dictionary<string, string>? topCommonNames = null;
+            if (topResult is not null)
+            {
+                topCommonNames = await _commonNameService.GetCommonNamesAsync(
+                    "bird",
+                    topResult.ScientificName);
+            }
+
+            var enrichedResults = results.Select(item =>
+            {
+                if (topResult is null || !string.Equals(item.ScientificName, topResult.ScientificName, StringComparison.OrdinalIgnoreCase))
+                    return item;
+
+                return item with
+                {
+                    CommonNames = topCommonNames
+                };
+            }).ToArray();
+
+            var enrichedTopResult = topResult is null
+                ? null
+                : topResult with { CommonNames = topCommonNames };
+
+            var accepted = enrichedTopResult is not null && enrichedTopResult.Probability >= _birdOptions.MinProbability;
 
             return new OkObjectResult(new BirdIdentificationResponse(
                 MinProbability: _birdOptions.MinProbability,
                 Accepted: accepted,
-                TopResult: topResult,
-                Results: results));
+                TopResult: enrichedTopResult,
+                Results: enrichedResults));
         }
         catch (HttpRequestException ex) when (ex.StatusCode is not null)
         {

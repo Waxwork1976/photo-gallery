@@ -23,6 +23,7 @@ const error = ref<string | null>(null)
 const folderTreeError = ref<string | null>(null)
 const folderTreeSuccess = ref<string | null>(null)
 const recomputeRunning = ref(false)
+const recomputeCommonNamesRunning = ref(false)
 
 // Editing state
 const editingId = ref<string | null>(null)
@@ -34,6 +35,11 @@ const saving = ref(false)
 // Delete confirmation
 const deletingId = ref<string | null>(null)
 const deleting = ref(false)
+const searchQuery = ref('')
+const searchSuggestions = ref<string[]>([])
+const searchLoading = ref(false)
+const searchError = ref<string | null>(null)
+let searchDebounceTimer: ReturnType<typeof setTimeout> | null = null
 
 const fetchImages = async () => {
   loading.value = true
@@ -62,6 +68,22 @@ const recomputeAllFolderAssignments = async () => {
     folderTreeError.value = `Failed to recompute tags and folders. ${detail}`
   } finally {
     recomputeRunning.value = false
+  }
+}
+
+const recomputeAllCommonNames = async () => {
+  recomputeCommonNamesRunning.value = true
+  folderTreeError.value = null
+  folderTreeSuccess.value = null
+  try {
+    const result = await api.recomputeCommonNames()
+    folderTreeSuccess.value = `Recomputed common names for ${result.updated}/${result.total} images.`
+    await fetchImages()
+  } catch (err: unknown) {
+    const detail = (err as { message?: string })?.message ?? ''
+    folderTreeError.value = `Failed to recompute common names. ${detail}`
+  } finally {
+    recomputeCommonNamesRunning.value = false
   }
 }
 
@@ -143,6 +165,94 @@ const formatSize = (bytes: number) => {
   return `${(bytes / (1024 * 1024)).toFixed(1)} MB`
 }
 
+const normalizeSearchText = (value: string) => value.trim().toLowerCase()
+
+const searchableTextForImage = (image: ImageDto) => {
+  const parts: string[] = [
+    image.title ?? '',
+    image.description ?? '',
+    ...(image.tags ?? []),
+    image.scientificName ?? '',
+    image.taxonomyOrder ?? '',
+    image.taxonomyFamily ?? '',
+    image.taxonomyGenus ?? '',
+    ...Object.values(image.commonNames ?? {}),
+  ]
+  return normalizeSearchText(parts.join(' '))
+}
+
+const buildContextSuggestionSet = (sourceImages: ImageDto[]) => {
+  const values = new Set<string>()
+  for (const image of sourceImages) {
+    for (const tag of image.tags ?? []) {
+      const cleaned = (tag ?? '').trim()
+      if (cleaned) values.add(cleaned.toLowerCase())
+    }
+
+    for (const field of [
+      image.scientificName,
+      image.taxonomyOrder,
+      image.taxonomyFamily,
+      image.taxonomyGenus,
+    ]) {
+      const cleaned = (field ?? '').trim()
+      if (cleaned) values.add(cleaned.toLowerCase())
+    }
+
+    for (const commonName of Object.values(image.commonNames ?? {})) {
+      const cleaned = (commonName ?? '').trim()
+      if (cleaned) values.add(cleaned.toLowerCase())
+    }
+  }
+  return values
+}
+
+const filteredImages = computed(() => {
+  const query = normalizeSearchText(searchQuery.value)
+  if (!query) return images.value
+  return images.value.filter(img => searchableTextForImage(img).includes(query))
+})
+
+const clearSearch = () => {
+  searchQuery.value = ''
+  searchSuggestions.value = []
+  searchError.value = null
+}
+
+const runSearchSuggestions = async (query: string) => {
+  const normalized = normalizeSearchText(query)
+  if (normalized.length < 3) {
+    searchSuggestions.value = []
+    searchError.value = null
+    return
+  }
+  searchLoading.value = true
+  searchError.value = null
+  try {
+    const response = await api.getManageSearchSuggestions(normalized, locale.value, 12)
+    const contextValues = buildContextSuggestionSet(images.value)
+    searchSuggestions.value = response.suggestions
+      .map(item => item.value)
+      .filter(value => contextValues.has(value.trim().toLowerCase()))
+  } catch {
+    searchSuggestions.value = []
+    searchError.value = t('manage.search.loadError')
+  } finally {
+    searchLoading.value = false
+  }
+}
+
+watch(searchQuery, (value) => {
+  if (searchDebounceTimer) clearTimeout(searchDebounceTimer)
+  searchDebounceTimer = setTimeout(() => {
+    runSearchSuggestions(value)
+  }, 250)
+})
+
+onUnmounted(() => {
+  if (searchDebounceTimer) clearTimeout(searchDebounceTimer)
+})
+
 onMounted(() => {
   fetchImages()
 })
@@ -170,6 +280,55 @@ onMounted(() => {
       </button>
     </section>
 
+    <section class="mb-6 space-y-2">
+      <div class="flex flex-col gap-2 sm:flex-row">
+        <input
+          v-model="searchQuery"
+          type="text"
+          class="ui-input sm:flex-1"
+          :placeholder="t('manage.search.placeholder')"
+        >
+        <button
+          v-if="normalizeSearchText(searchQuery).length > 0"
+          type="button"
+          class="btn-secondary"
+          @click="clearSearch"
+        >
+          {{ t('manage.search.clear') }}
+        </button>
+      </div>
+
+      <p v-if="searchError" class="text-xs text-red-600">
+        {{ searchError }}
+      </p>
+
+      <div v-if="normalizeSearchText(searchQuery).length >= 3 && searchSuggestions.length" class="rounded-lg border border-stone-200 bg-white p-2">
+        <p class="px-2 pb-1 text-xs font-medium text-stone-500">
+          {{ t('manage.search.suggestions') }}
+        </p>
+        <div class="flex flex-wrap gap-1.5">
+          <button
+            v-for="suggestion in searchSuggestions"
+            :key="suggestion"
+            type="button"
+            class="btn-secondary rounded-md px-2 py-1 text-xs"
+            @click="searchQuery = suggestion"
+          >
+            {{ suggestion }}
+          </button>
+        </div>
+      </div>
+      <p v-else-if="normalizeSearchText(searchQuery).length > 0 && normalizeSearchText(searchQuery).length < 3" class="text-xs text-stone-500">
+        {{ t('manage.search.minChars', { count: 3 }) }}
+      </p>
+      <p v-if="searchLoading" class="text-xs text-stone-500">
+        {{ t('manage.search.loading') }}
+      </p>
+      <p v-if="normalizeSearchText(searchQuery).length > 0" class="text-sm text-stone-600">
+        {{ t('manage.search.resultsCount', { count: filteredImages.length }) }}
+      </p>
+    </section>
+
     <section class="ui-card mb-8 p-4 sm:p-6">
       <div class="mb-4 flex items-center justify-between">
         <div>
@@ -178,8 +337,16 @@ onMounted(() => {
         </div>
         <div class="flex items-center gap-2">
           <button
+            class="btn-secondary"
+            :disabled="recomputeCommonNamesRunning || recomputeRunning"
+            @click="recomputeAllCommonNames"
+          >
+            <span v-if="recomputeCommonNamesRunning">{{ t('manage.recomputingCommonNames') }}</span>
+            <span v-else>{{ t('manage.recomputeCommonNames') }}</span>
+          </button>
+          <button
             class="btn-primary"
-            :disabled="recomputeRunning"
+            :disabled="recomputeRunning || recomputeCommonNamesRunning"
             @click="recomputeAllFolderAssignments"
           >
             <span v-if="recomputeRunning">{{ t('manage.recomputing') }}</span>
@@ -207,15 +374,17 @@ onMounted(() => {
     </p>
 
     <!-- Empty state -->
-    <div v-if="!loading && images.length === 0" class="rounded-xl border-2 border-dashed border-stone-300 px-6 py-16 text-center">
+    <div v-if="!loading && filteredImages.length === 0" class="rounded-xl border-2 border-dashed border-stone-300 px-6 py-16 text-center">
       <PhotoIcon class="mx-auto mb-3 h-12 w-12 text-stone-300" />
-      <p class="text-sm text-stone-500">{{ t('manage.empty') }}</p>
+      <p class="text-sm text-stone-500">
+        {{ normalizeSearchText(searchQuery).length > 0 ? t('manage.search.noResults') : t('manage.empty') }}
+      </p>
     </div>
 
     <!-- Image list -->
-    <div v-if="!loading && images.length > 0" class="space-y-4">
+    <div v-if="!loading && filteredImages.length > 0" class="space-y-4">
       <div
-        v-for="img in images"
+        v-for="img in filteredImages"
         :key="img.id"
         class="ui-card ui-transition-soft overflow-hidden hover:shadow-md"
       >

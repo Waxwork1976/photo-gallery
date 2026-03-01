@@ -19,6 +19,12 @@ export const useUpload = () => {
       title: string
       description: string
       tags: string[]
+      speciesType?: string
+      scientificName?: string
+      taxonomyOrder?: string
+      taxonomyFamily?: string
+      taxonomyGenus?: string
+      commonNames?: Record<string, string>
       latitude?: number
       longitude?: number
     },
@@ -50,6 +56,12 @@ export const useUpload = () => {
         title: metadata.title,
         description: metadata.description,
         tags: metadata.tags,
+        speciesType: metadata.speciesType,
+        scientificName: metadata.scientificName,
+        taxonomyOrder: metadata.taxonomyOrder,
+        taxonomyFamily: metadata.taxonomyFamily,
+        taxonomyGenus: metadata.taxonomyGenus,
+        commonNames: metadata.commonNames,
         contentType: file.type,
         sizeBytes: file.size,
         latitude: metadata.latitude,

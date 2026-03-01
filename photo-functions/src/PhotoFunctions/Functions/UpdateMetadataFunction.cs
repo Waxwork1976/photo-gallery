@@ -64,6 +64,18 @@ public sealed class UpdateMetadataFunction
         entity.Title = body.Title;
         entity.Description = body.Description;
         entity.Tags = string.Join(",", body.Tags ?? []);
+        if (body.SpeciesType is not null)
+            entity.SpeciesType = SpeciesMetadata.NormalizeSpeciesType(body.SpeciesType);
+        if (body.ScientificName is not null)
+            entity.ScientificName = SpeciesMetadata.NormalizeText(body.ScientificName);
+        if (body.TaxonomyOrder is not null)
+            entity.TaxonomyOrder = SpeciesMetadata.NormalizeText(body.TaxonomyOrder);
+        if (body.TaxonomyFamily is not null)
+            entity.TaxonomyFamily = SpeciesMetadata.NormalizeText(body.TaxonomyFamily);
+        if (body.TaxonomyGenus is not null)
+            entity.TaxonomyGenus = SpeciesMetadata.NormalizeText(body.TaxonomyGenus);
+        if (body.CommonNames is not null)
+            entity.CommonNamesJson = SpeciesMetadata.SerializeCommonNames(body.CommonNames);
         var folderDoc = await _folderTreeService.GetDocumentAsync();
         var resolved = _folderTreeService.ResolveFoldersFromTags(body.Tags ?? [], folderDoc);
         entity.PrimaryFolderPath = resolved.PrimaryFolderPath;

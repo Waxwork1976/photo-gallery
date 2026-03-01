@@ -7,6 +7,12 @@ export interface ImageDto {
   title: string
   description: string
   tags: string[]
+  speciesType: string
+  scientificName: string
+  taxonomyOrder: string
+  taxonomyFamily: string
+  taxonomyGenus: string
+  commonNames: Record<string, string>
   primaryFolderPath: string
   folderPaths: string[]
   uploadedAt: string
@@ -45,6 +51,12 @@ export interface SaveMetadataRequest {
   title: string
   description: string
   tags: string[]
+  speciesType?: string
+  scientificName?: string
+  taxonomyOrder?: string
+  taxonomyFamily?: string
+  taxonomyGenus?: string
+  commonNames?: Record<string, string>
   contentType: string
   sizeBytes: number
   width?: number
@@ -58,6 +70,12 @@ export interface UpdateMetadataRequest {
   title: string
   description: string
   tags: string[]
+  speciesType?: string
+  scientificName?: string
+  taxonomyOrder?: string
+  taxonomyFamily?: string
+  taxonomyGenus?: string
+  commonNames?: Record<string, string>
 }
 
 /** Response from PUT /api/update-metadata/{id} */
@@ -104,6 +122,13 @@ export interface RecomputeFolderAssignmentsResponse {
   updated: number
 }
 
+export interface RecomputeCommonNamesResponse {
+  success: boolean
+  total: number
+  attempted?: number
+  updated: number
+}
+
 export interface SlideshowSettingsDto {
   photoCount: number
   intervalSeconds: number
@@ -114,4 +139,15 @@ export interface ManageSlideshowSettingsRequest {
   photoCount: number
   intervalSeconds: number
   transitionSeconds: number
+}
+
+export interface SearchSuggestionDto {
+  value: string
+  matchType: string
+}
+
+export interface SearchSuggestionsResponse {
+  query: string
+  locale: string
+  suggestions: SearchSuggestionDto[]
 }
