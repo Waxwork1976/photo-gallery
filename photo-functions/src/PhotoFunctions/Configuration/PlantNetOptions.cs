@@ -9,6 +9,6 @@ public sealed class PlantNetOptions
     public string Project { get; set; } = "all";
     public string Language { get; set; } = "fr";
     public string Type { get; set; } = "kt";
-    public bool IncludeRelatedImages { get; set; } = false;
+    public bool IncludeRelatedImages { get; set; } = true;
     public bool Detailed { get; set; } = true;
 }
