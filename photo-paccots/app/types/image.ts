@@ -133,12 +133,14 @@ export interface SlideshowSettingsDto {
   photoCount: number
   intervalSeconds: number
   transitionSeconds: number
+  showProjectMap: boolean
 }
 
 export interface ManageSlideshowSettingsRequest {
   photoCount: number
   intervalSeconds: number
   transitionSeconds: number
+  showProjectMap: boolean
 }
 
 export interface SearchSuggestionDto {

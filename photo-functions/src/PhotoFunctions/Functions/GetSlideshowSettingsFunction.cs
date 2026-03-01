@@ -23,6 +23,7 @@ public sealed class GetSlideshowSettingsFunction
         return new OkObjectResult(new SlideshowSettingsResponse(
             PhotoCount: document.PhotoCount,
             IntervalSeconds: document.IntervalSeconds,
-            TransitionSeconds: document.TransitionSeconds));
+            TransitionSeconds: document.TransitionSeconds,
+            ShowProjectMap: document.ShowProjectMap));
     }
 }

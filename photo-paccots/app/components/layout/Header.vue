@@ -21,6 +21,9 @@ const { t, locale, setLocale, supportedLocales } = useTranslations()
         <NuxtLink to="/" class="ui-focus-ring ui-transition-color whitespace-nowrap rounded-md text-sm font-medium text-stone-600 hover:text-emerald-700">
           {{ t('nav.gallery') }}
         </NuxtLink>
+        <NuxtLink to="/project" class="ui-focus-ring ui-transition-color whitespace-nowrap rounded-md text-sm font-medium text-stone-600 hover:text-emerald-700">
+          {{ t('nav.project') }}
+        </NuxtLink>
 
         <NuxtLink
           v-if="isAuthenticated"
@@ -90,6 +93,9 @@ const { t, locale, setLocale, supportedLocales } = useTranslations()
       <div v-if="mobileMenuOpen" class="border-t border-stone-200 bg-white px-4 pb-4 pt-2 sm:hidden">
         <NuxtLink to="/" class="ui-focus-ring ui-transition-color block rounded-md px-3 py-2 text-sm font-medium text-stone-700 hover:bg-stone-100" @click="mobileMenuOpen = false">
           {{ t('nav.gallery') }}
+        </NuxtLink>
+        <NuxtLink to="/project" class="ui-focus-ring ui-transition-color block rounded-md px-3 py-2 text-sm font-medium text-stone-700 hover:bg-stone-100" @click="mobileMenuOpen = false">
+          {{ t('nav.project') }}
         </NuxtLink>
         <NuxtLink v-if="isAuthenticated" to="/upload" class="ui-focus-ring ui-transition-color block rounded-md px-3 py-2 text-sm font-medium text-stone-700 hover:bg-stone-100" @click="mobileMenuOpen = false">
           {{ t('nav.upload') }}

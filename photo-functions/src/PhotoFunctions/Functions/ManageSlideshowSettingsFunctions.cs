@@ -32,7 +32,8 @@ public sealed class ManageSlideshowSettingsFunctions
         return new OkObjectResult(new SlideshowSettingsResponse(
             PhotoCount: document.PhotoCount,
             IntervalSeconds: document.IntervalSeconds,
-            TransitionSeconds: document.TransitionSeconds));
+            TransitionSeconds: document.TransitionSeconds,
+            ShowProjectMap: document.ShowProjectMap));
     }
 
     [Function("manage-slideshow-settings-put")]
@@ -61,13 +62,15 @@ public sealed class ManageSlideshowSettingsFunctions
             PhotoCount = body.PhotoCount,
             IntervalSeconds = body.IntervalSeconds,
             TransitionSeconds = body.TransitionSeconds,
+            ShowProjectMap = body.ShowProjectMap,
         });
 
         var persisted = await _slideshowSettingsService.GetDocumentAsync();
         return new OkObjectResult(new SlideshowSettingsResponse(
             PhotoCount: persisted.PhotoCount,
             IntervalSeconds: persisted.IntervalSeconds,
-            TransitionSeconds: persisted.TransitionSeconds));
+            TransitionSeconds: persisted.TransitionSeconds,
+            ShowProjectMap: persisted.ShowProjectMap));
     }
 
     private async Task<(ClaimsPrincipal? principal, IActionResult? error)> AuthorizeAsync(HttpRequest req)
