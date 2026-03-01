@@ -75,7 +75,8 @@ public sealed record ManageTranslationsResponse(
 public sealed record SlideshowSettingsResponse(
     int PhotoCount,
     int IntervalSeconds,
-    double TransitionSeconds
+    double TransitionSeconds,
+    bool ShowProjectMap
 );
 
 /// <summary>Validated user information extracted from a JWT.</summary>

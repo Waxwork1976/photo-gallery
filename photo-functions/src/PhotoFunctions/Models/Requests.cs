@@ -66,7 +66,8 @@ public sealed record TranslateSingleTranslationRequest(
 public sealed record ManageSlideshowSettingsRequest(
     int PhotoCount,
     int IntervalSeconds,
-    double TransitionSeconds
+    double TransitionSeconds,
+    bool ShowProjectMap
 );
 
 /// <summary>Request payload metadata for insect identification.</summary>

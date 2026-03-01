@@ -14,6 +14,8 @@ A personal nature and garden photography gallery built on Azure.
   - number of photos
   - slide interval
   - fade transition duration (with guard so transition cannot exceed interval)
+  - visibility of the map section on the public `/project` page
+- **Public project page:** Added `/project` page with localized long-form project description and optional OpenStreetMap markers built from photo coordinates.
 - **Translation management upgrades:**
   - placeholder protection for `{...}` tokens during machine translation
   - per-translation lock (`autoTranslate`) to prevent overwriting manual edits
@@ -49,7 +51,7 @@ PhotoPaccots/
 │   ├── app/
 │   │   ├── components/         # Vue components (gallery, upload, layout)
 │   │   ├── composables/        # useAuth, useApi, useUpload
-│   │   ├── pages/              # index, upload, manage, manage-translations, manage-settings, powered-by, auth/callback
+│   │   ├── pages/              # index, project, upload, manage, manage-translations, manage-settings, powered-by, auth/callback
 │   │   ├── plugins/            # MSAL client plugin
 │   │   └── middleware/         # Auth route guard
 │   ├── .env.example            # Environment template

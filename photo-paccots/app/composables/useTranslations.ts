@@ -6,6 +6,7 @@ const LOCALE_STORAGE_KEY = 'photo-paccots-locale'
 const defaultEn: TranslationDictionary = {
   'app.brand': 'Photo Paccots',
   'nav.gallery': 'Gallery',
+  'nav.project': 'The project',
   'nav.upload': 'Upload',
   'nav.manage': 'Manage',
   'footer.thanksTo': 'Thanks to..',
@@ -94,6 +95,17 @@ const defaultEn: TranslationDictionary = {
   'settings.saveError': 'Failed to save settings.',
   'settings.saveSuccess': 'Settings saved.',
   'settings.save': 'Save settings',
+  'settings.showProjectMap': 'Show map on the "The project" page',
+
+  'project.title': 'The project',
+  'project.subtitle': 'Why this application was created',
+  'project.loading': 'Loading project information...',
+  'project.loadError': 'Failed to load project information.',
+  'project.body.p1': 'Photo Paccots was created to preserve and share moments captured in nature around Les Paccots and beyond. It started as a personal need: keep photos organized over time while making them easy to revisit by species and season.',
+  'project.body.p2': 'The application combines manual curation with assisted identification so each image can be connected to meaningful context: scientific taxonomy, common names in multiple languages, and where it was taken. This makes the gallery useful both as a visual memory and as a small learning tool.',
+  'project.body.p3': 'The goal is to keep this space simple, durable, and pleasant to use on any device. New features are added when they improve understanding of the photos, make browsing easier, or help maintain data quality in the long run.',
+  'project.map.title': 'Where is it located',
+  'project.map.photoFallbackTitle': 'Photo location',
 
   'translations.title': 'Translations',
   'translations.subtitle': 'Customize UI text for each supported language.',
@@ -138,6 +150,13 @@ const interpolate = (template: string, params?: Record<string, string | number>)
   return template.replace(/\{(\w+)\}/g, (_, key: string) => String(params[key] ?? `{${key}}`))
 }
 
+const normalizeTranslationValue = (value: string | undefined | null) => {
+  if (typeof value !== 'string')
+    return undefined
+  const trimmed = value.trim()
+  return trimmed.length > 0 ? value : undefined
+}
+
 export const useTranslations = () => {
   const api = useApi()
 
@@ -161,8 +180,8 @@ export const useTranslations = () => {
 
   const t = (key: string, params?: Record<string, string | number>) => {
     const activeLocale = locale.value
-    const value = locales.value[activeLocale]?.[key]
-      ?? locales.value.en[key]
+    const value = normalizeTranslationValue(locales.value[activeLocale]?.[key])
+      ?? normalizeTranslationValue(locales.value.en[key])
       ?? key
     return interpolate(value, params)
   }

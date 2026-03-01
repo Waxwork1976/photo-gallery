@@ -21,6 +21,7 @@ const success = ref<string | null>(null)
 const photoCount = ref(8)
 const intervalSeconds = ref(4)
 const transitionSeconds = ref(0.8)
+const showProjectMap = ref(false)
 
 const load = async () => {
   loading.value = true
@@ -31,6 +32,7 @@ const load = async () => {
     photoCount.value = settings.photoCount
     intervalSeconds.value = settings.intervalSeconds
     transitionSeconds.value = settings.transitionSeconds
+    showProjectMap.value = settings.showProjectMap
   } catch (err: unknown) {
     const detail = (err as { message?: string })?.message ?? ''
     error.value = `${t('settings.loadError')} ${detail}`
@@ -51,6 +53,7 @@ const save = async () => {
     photoCount: Math.max(1, Math.floor(photoCount.value || 1)),
     intervalSeconds: normalizedInterval,
     transitionSeconds: Math.min(normalizedTransition, normalizedInterval),
+    showProjectMap: showProjectMap.value,
   }
 
   try {
@@ -58,6 +61,7 @@ const save = async () => {
     photoCount.value = settings.photoCount
     intervalSeconds.value = settings.intervalSeconds
     transitionSeconds.value = settings.transitionSeconds
+    showProjectMap.value = settings.showProjectMap
     success.value = t('settings.saveSuccess')
   } catch (err: unknown) {
     const detail = (err as { message?: string })?.message ?? ''
@@ -132,6 +136,17 @@ watch(intervalSeconds, (nextInterval) => {
             :max="Math.max(1, intervalSeconds || 1)"
             class="ui-input-compact"
           >
+        </label>
+      </div>
+
+      <div v-if="!loading" class="mt-4">
+        <label class="inline-flex cursor-pointer items-center gap-2 text-sm text-stone-700">
+          <input
+            v-model="showProjectMap"
+            type="checkbox"
+            class="h-4 w-4 rounded border-stone-300 text-emerald-600 focus:ring-emerald-500"
+          >
+          <span>{{ t('settings.showProjectMap') }}</span>
         </label>
       </div>
 
