@@ -29,6 +29,12 @@ public sealed class PhotoEntity : ITableEntity
 
     /// <summary>Comma-separated tags (Table Storage has no native array type).</summary>
     public string Tags { get; set; } = string.Empty;
+    public string SpeciesType { get; set; } = string.Empty;
+    public string ScientificName { get; set; } = string.Empty;
+    public string TaxonomyOrder { get; set; } = string.Empty;
+    public string TaxonomyFamily { get; set; } = string.Empty;
+    public string TaxonomyGenus { get; set; } = string.Empty;
+    public string CommonNamesJson { get; set; } = string.Empty;
     public string PrimaryFolderPath { get; set; } = "photos";
     public string FolderPathsCsv { get; set; } = "photos";
 

@@ -24,6 +24,12 @@ public sealed record ImageDto(
     string Title,
     string Description,
     string[] Tags,
+    string SpeciesType,
+    string ScientificName,
+    string TaxonomyOrder,
+    string TaxonomyFamily,
+    string TaxonomyGenus,
+    Dictionary<string, string> CommonNames,
     string PrimaryFolderPath,
     string[] FolderPaths,
     string UploadedAt,
@@ -99,9 +105,20 @@ public sealed record HealthResponse(
 public sealed record InsectIdentificationResponse(
     bool Accepted,
     double Confidence,
-    string CommonName,
+    Dictionary<string, string> CommonNames,
     string ScientificName,
     string TaxonomyOrder,
     string TaxonomyFamily,
     string TaxonomyGenus
+);
+
+public sealed record SearchSuggestionDto(
+    string Value,
+    string MatchType
+);
+
+public sealed record SearchSuggestionsResponse(
+    string Query,
+    string Locale,
+    SearchSuggestionDto[] Suggestions
 );

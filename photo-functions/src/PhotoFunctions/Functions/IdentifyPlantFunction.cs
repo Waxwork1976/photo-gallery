@@ -1,6 +1,7 @@
 using System.Net;
 using System.Security.Claims;
 using System.Text.Json;
+using System.Text.Json.Nodes;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Azure.Functions.Worker;
@@ -31,15 +32,18 @@ public sealed class IdentifyPlantFunction
 
     private readonly IJwtValidationService _jwtService;
     private readonly IPlantIdentificationService _plantService;
+    private readonly ISpeciesCommonNameService _commonNameService;
     private readonly ILogger<IdentifyPlantFunction> _logger;
 
     public IdentifyPlantFunction(
         IJwtValidationService jwtService,
         IPlantIdentificationService plantService,
+        ISpeciesCommonNameService commonNameService,
         ILogger<IdentifyPlantFunction> logger)
     {
         _jwtService = jwtService;
         _plantService = plantService;
+        _commonNameService = commonNameService;
         _logger = logger;
     }
 
@@ -102,8 +106,8 @@ public sealed class IdentifyPlantFunction
                 imageStreams.Add((file.OpenReadStream(), file.FileName, file.ContentType));
 
             var result = await _plantService.IdentifyAsync(imageStreams, organs);
-
-            return new OkObjectResult(result);
+            var enriched = await EnrichWithCommonNamesAsync(result);
+            return new OkObjectResult(enriched);
         }
         catch (HttpRequestException ex) when (ex.StatusCode is not null)
         {
@@ -128,6 +132,61 @@ public sealed class IdentifyPlantFunction
             foreach (var (stream, _, _) in imageStreams)
                 await stream.DisposeAsync();
         }
+    }
+
+    private async Task<JsonNode> EnrichWithCommonNamesAsync(JsonElement result)
+    {
+        JsonNode? rootNode;
+        try
+        {
+            rootNode = JsonNode.Parse(result.GetRawText());
+        }
+        catch
+        {
+            rootNode = null;
+        }
+
+        if (rootNode is not JsonObject root)
+            return JsonNode.Parse(result.GetRawText())!;
+
+        var results = root["results"] as JsonArray;
+        if (results is null)
+            return root;
+
+        var cache = new Dictionary<string, Dictionary<string, string>>(StringComparer.OrdinalIgnoreCase);
+        foreach (var item in results.Take(5))
+        {
+            if (item is not JsonObject resultObj)
+                continue;
+            if (resultObj["species"] is not JsonObject speciesObj)
+                continue;
+
+            var scientificName = speciesObj["scientificName"]?.GetValue<string>()?.Trim() ?? string.Empty;
+            if (string.IsNullOrWhiteSpace(scientificName))
+                continue;
+
+            if (!cache.TryGetValue(scientificName, out var names))
+            {
+                var order = speciesObj["order"]?["scientificNameWithoutAuthor"]?.GetValue<string>()
+                            ?? speciesObj["order"]?["scientificName"]?.GetValue<string>();
+                var family = speciesObj["family"]?["scientificNameWithoutAuthor"]?.GetValue<string>()
+                             ?? speciesObj["family"]?["scientificName"]?.GetValue<string>();
+                var genus = speciesObj["genus"]?["scientificNameWithoutAuthor"]?.GetValue<string>()
+                            ?? speciesObj["genus"]?["scientificName"]?.GetValue<string>();
+
+                names = await _commonNameService.GetCommonNamesAsync(
+                    speciesType: "plant",
+                    scientificName: scientificName,
+                    taxonomyOrder: order,
+                    taxonomyFamily: family,
+                    taxonomyGenus: genus);
+                cache[scientificName] = names;
+            }
+
+            speciesObj["commonNamesByLocale"] = JsonSerializer.SerializeToNode(names);
+        }
+
+        return root;
     }
 
     private async Task<(ClaimsPrincipal? principal, IActionResult? error)> AuthorizeAsync(HttpRequest req)

@@ -38,9 +38,6 @@ public sealed class InsectIdentificationService : IInsectIdentificationService
         if (string.IsNullOrWhiteSpace(_options.ApiKey))
             throw new InvalidOperationException("Gemini API key is not configured.");
 
-        if (_options.TimeoutSeconds > 0)
-            _httpClient.Timeout = TimeSpan.FromSeconds(_options.TimeoutSeconds);
-
         var base64 = await ToBase64Async(content, cancellationToken);
         var endpoint =
             $"{_options.BaseUrl.TrimEnd('/')}/v1beta/models/{Uri.EscapeDataString(_options.Model)}:generateContent?key={Uri.EscapeDataString(_options.ApiKey)}";
@@ -75,8 +72,15 @@ public sealed class InsectIdentificationService : IInsectIdentificationService
             Content = new StringContent(json, Encoding.UTF8, "application/json")
         };
 
-        var response = await _httpClient.SendAsync(request, cancellationToken);
-        var payload = await response.Content.ReadAsStringAsync(cancellationToken);
+        using var timeoutCts = _options.TimeoutSeconds > 0
+            ? new CancellationTokenSource(TimeSpan.FromSeconds(_options.TimeoutSeconds))
+            : null;
+        using var linkedCts = timeoutCts is null
+            ? CancellationTokenSource.CreateLinkedTokenSource(cancellationToken)
+            : CancellationTokenSource.CreateLinkedTokenSource(cancellationToken, timeoutCts.Token);
+
+        var response = await _httpClient.SendAsync(request, linkedCts.Token);
+        var payload = await response.Content.ReadAsStringAsync(linkedCts.Token);
         if (!response.IsSuccessStatusCode)
         {
             _logger.LogWarning(
@@ -111,7 +115,7 @@ public sealed class InsectIdentificationService : IInsectIdentificationService
 
     private static string BuildPrompt(string locale)
     {
-        var languageName = locale switch
+        var preferredLanguage = locale switch
         {
             "fr" => "French",
             "de" => "German",
@@ -125,7 +129,12 @@ public sealed class InsectIdentificationService : IInsectIdentificationService
             "{",
             "  \"accepted\": boolean,",
             "  \"confidence\": number,",
-            "  \"commonName\": \"string\",",
+            "  \"commonNames\": {",
+            "    \"en\": \"string\",",
+            "    \"fr\": \"string\",",
+            "    \"de\": \"string\",",
+            "    \"it\": \"string\"",
+            "  },",
             "  \"scientificName\": \"string\",",
             "  \"taxonomyOrder\": \"string\",",
             "  \"taxonomyFamily\": \"string\",",
@@ -133,7 +142,7 @@ public sealed class InsectIdentificationService : IInsectIdentificationService
             "}",
             string.Empty,
             "Rules:",
-            $"- commonName must be written in {languageName}.",
+            $"- The most complete common name should be returned for each locale. Preferred language context: {preferredLanguage}.",
             "- scientificName must be Latin binomial or best known scientific name.",
             "- taxonomyOrder, taxonomyFamily, taxonomyGenus must be separate values.",
             "- Return ONLY the raw value in each field. Do NOT include labels, prefixes, or key names.",
@@ -200,7 +209,7 @@ public sealed class InsectIdentificationService : IInsectIdentificationService
 
         confidence = Math.Clamp(confidence, 0, 1);
 
-        var commonName = NormalizeTaxonomyValue(parsed.CommonName);
+        var commonNames = NormalizeCommonNames(parsed.CommonNames);
         var scientificName = NormalizeTaxonomyValue(parsed.ScientificName);
         var taxonomyOrder = NormalizeTaxonomyValue(parsed.TaxonomyOrder);
         var taxonomyFamily = NormalizeTaxonomyValue(parsed.TaxonomyFamily);
@@ -215,11 +224,31 @@ public sealed class InsectIdentificationService : IInsectIdentificationService
         return new InsectIdentificationResponse(
             Accepted: accepted,
             Confidence: confidence,
-            CommonName: commonName,
+            CommonNames: commonNames,
             ScientificName: scientificName,
             TaxonomyOrder: taxonomyOrder,
             TaxonomyFamily: taxonomyFamily,
             TaxonomyGenus: taxonomyGenus);
+    }
+
+    private static Dictionary<string, string> NormalizeCommonNames(Dictionary<string, string>? commonNames)
+    {
+        var map = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
+        {
+            ["en"] = string.Empty,
+            ["fr"] = string.Empty,
+            ["de"] = string.Empty,
+            ["it"] = string.Empty,
+        };
+        if (commonNames is null)
+            return map;
+
+        foreach (var locale in map.Keys.ToArray())
+        {
+            map[locale] = NormalizeTaxonomyValue(commonNames.GetValueOrDefault(locale));
+        }
+
+        return map;
     }
 
     private static string NormalizeTaxonomyValue(string? value)
@@ -293,7 +322,13 @@ public sealed class InsectIdentificationService : IInsectIdentificationService
         new(
             Accepted: false,
             Confidence: 0,
-            CommonName: string.Empty,
+            CommonNames: new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
+            {
+                ["en"] = string.Empty,
+                ["fr"] = string.Empty,
+                ["de"] = string.Empty,
+                ["it"] = string.Empty,
+            },
             ScientificName: string.Empty,
             TaxonomyOrder: string.Empty,
             TaxonomyFamily: string.Empty,

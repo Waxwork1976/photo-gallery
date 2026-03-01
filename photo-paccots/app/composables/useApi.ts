@@ -6,7 +6,9 @@ import type {
   ManageSlideshowSettingsRequest,
   ManageFolderTreeRequest,
   ManageFolderTreeResponse,
+  RecomputeCommonNamesResponse,
   RecomputeFolderAssignmentsResponse,
+  SearchSuggestionsResponse,
   SaveMetadataRequest,
   SaveMetadataResponse,
   SlideshowSettingsDto,
@@ -98,6 +100,19 @@ export const useApi = () => {
     return fetchWithAuth<SlideshowSettingsDto>('/api/slideshow-settings')
   }
 
+  const getSearchSuggestions = async (
+    query: string,
+    locale: string,
+    limit = 12,
+  ): Promise<SearchSuggestionsResponse> => {
+    const searchParams = new URLSearchParams({
+      q: query,
+      locale,
+      limit: String(limit),
+    })
+    return fetchWithAuth<SearchSuggestionsResponse>(`/api/search-suggestions?${searchParams.toString()}`)
+  }
+
   // ---- Protected endpoints ----
 
   /** Request a SAS upload URL for a given file. */
@@ -184,6 +199,13 @@ export const useApi = () => {
     })
   }
 
+  const recomputeCommonNames = async (): Promise<RecomputeCommonNamesResponse> => {
+    return fetchWithAuth<RecomputeCommonNamesResponse>('/api/recompute-common-names', {
+      method: 'POST',
+      body: JSON.stringify({}),
+    })
+  }
+
   const getManageTranslations = async (): Promise<ManageTranslationsResponse> => {
     return fetchWithAuth<ManageTranslationsResponse>('/api/manage-translations')
   }
@@ -217,6 +239,19 @@ export const useApi = () => {
 
   const getManageSlideshowSettings = async (): Promise<SlideshowSettingsDto> => {
     return fetchWithAuth<SlideshowSettingsDto>('/api/manage-slideshow-settings')
+  }
+
+  const getManageSearchSuggestions = async (
+    query: string,
+    locale: string,
+    limit = 12,
+  ): Promise<SearchSuggestionsResponse> => {
+    const searchParams = new URLSearchParams({
+      q: query,
+      locale,
+      limit: String(limit),
+    })
+    return fetchWithAuth<SearchSuggestionsResponse>(`/api/manage-search-suggestions?${searchParams.toString()}`)
   }
 
   const updateManageSlideshowSettings = async (
@@ -375,15 +410,18 @@ export const useApi = () => {
     getFolderTree,
     getTranslations,
     getSlideshowSettings,
+    getSearchSuggestions,
     listAllImages,
     getManageFolderTree,
     updateManageFolderTree,
     recomputeFolderAssignments,
+    recomputeCommonNames,
     getManageTranslations,
     updateManageTranslations,
     translateAllManageTranslations,
     translateKeyManageTranslations,
     getManageSlideshowSettings,
+    getManageSearchSuggestions,
     updateManageSlideshowSettings,
     generateSasUrl,
     saveMetadata,

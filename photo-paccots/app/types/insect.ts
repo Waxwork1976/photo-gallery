@@ -1,7 +1,7 @@
 export interface InsectIdentificationResponse {
   accepted: boolean
   confidence: number
-  commonName: string
+  commonNames: Record<string, string>
   scientificName: string
   taxonomyOrder: string
   taxonomyFamily: string

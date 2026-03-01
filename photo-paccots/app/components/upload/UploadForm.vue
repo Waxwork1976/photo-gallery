@@ -29,6 +29,14 @@ const validationError = ref<string | null>(null)
 const uploadSuccess = ref(false)
 const coordinates = ref<{ latitude: number, longitude: number } | null>(null)
 const coordinateSource = ref<'device' | 'exif' | null>(null)
+const identifiedSpeciesMetadata = ref<{
+  speciesType?: 'plant' | 'bird' | 'insect'
+  scientificName?: string
+  taxonomyOrder?: string
+  taxonomyFamily?: string
+  taxonomyGenus?: string
+  commonNames?: Record<string, string>
+}>({})
 
 // Plant identification
 const isIdentifying = ref(false)
@@ -63,6 +71,20 @@ const formatDateTime = () => {
 
 const formatCoordinates = (lat: number, lon: number) => {
   return `${lat.toFixed(6)}, ${lon.toFixed(6)}`
+}
+
+const normalizeCommonNames = (input?: Record<string, string>) => {
+  const result: Record<string, string> = { en: '', fr: '', de: '', it: '' }
+  for (const key of Object.keys(result)) {
+    const value = input?.[key]
+    result[key] = (value ?? '').trim()
+  }
+  return result
+}
+
+const localizedCommonName = (commonNames?: Record<string, string>, fallback = '') => {
+  const names = normalizeCommonNames(commonNames)
+  return names[locale.value] || names.en || fallback
 }
 
 const getDeviceCoordinates = async (): Promise<{ latitude: number, longitude: number } | null> => {
@@ -198,9 +220,15 @@ const getExifCoordinates = async (selected: File): Promise<{ latitude: number, l
 const applyPlantSelection = (result: PlantNetResult, options: { updateText?: boolean } = {}) => {
   const { updateText = true } = options
   const species = result.species
+  const commonNames = normalizeCommonNames(species.commonNamesByLocale)
+  if (!Object.values(commonNames).some(Boolean)) {
+    commonNames[locale.value] = (species.commonNames?.[0] ?? '').trim()
+    if (!commonNames.en)
+      commonNames.en = (species.commonNames?.[0] ?? '').trim()
+  }
 
   if (updateText) {
-    const commonName = species.commonNames?.[0] ?? species.scientificNameWithoutAuthor
+    const commonName = localizedCommonName(commonNames, species.scientificNameWithoutAuthor)
     const userName = user.value?.name ?? 'unknown'
     title.value = `${formatDateTime()}-${commonName}-${userName}`
 
@@ -228,6 +256,14 @@ const applyPlantSelection = (result: PlantNetResult, options: { updateText?: boo
     if (value) nextTags.add(value)
   }
   tagsInput.value = Array.from(nextTags).join(', ')
+  identifiedSpeciesMetadata.value = {
+    speciesType: 'plant',
+    scientificName: species.scientificName,
+    taxonomyOrder: '',
+    taxonomyFamily: species.family.scientificNameWithoutAuthor,
+    taxonomyGenus: species.genus.scientificNameWithoutAuthor,
+    commonNames,
+  }
 
   selectedPlantResult.value = result
   identificationDone.value = true
@@ -336,7 +372,8 @@ const identifyBird = async () => {
     }
 
     const userName = user.value?.name ?? 'unknown'
-    title.value = `${formatDateTime()}-${topResult.scientificName}-${userName}`
+    const commonName = localizedCommonName(topResult.commonNames, topResult.scientificName)
+    title.value = `${formatDateTime()}-${commonName}-${userName}`
     description.value = `${topResult.scientificName} | Confidence: ${Math.round(score * 100)}%`
 
     const orderedTags = [
@@ -350,6 +387,14 @@ const identifyBird = async () => {
         nextTags.add(v)
     }
     tagsInput.value = Array.from(nextTags).join(', ')
+    identifiedSpeciesMetadata.value = {
+      speciesType: 'bird',
+      scientificName: topResult.scientificName,
+      taxonomyOrder: topResult.taxonomyOrder ?? '',
+      taxonomyFamily: topResult.taxonomyFamily ?? '',
+      taxonomyGenus: topResult.taxonomyGenus ?? '',
+      commonNames: normalizeCommonNames(topResult.commonNames),
+    }
 
     identificationDone.value = true
     lastIdentificationType.value = 'bird'
@@ -382,7 +427,7 @@ const mergeUniqueTags = (current: string, nextOrderedTags: string[]) => {
 
 const applyInsectIdentification = (result: InsectIdentificationResponse) => {
   const userName = user.value?.name ?? 'unknown'
-  const displayName = result.commonName || result.scientificName || 'insect'
+  const displayName = localizedCommonName(result.commonNames, result.scientificName || 'insect')
   title.value = `${formatDateTime()}-${displayName}-${userName}`
 
   description.value = `${result.scientificName} | Order: ${result.taxonomyOrder} | Family: ${result.taxonomyFamily} | Genus: ${result.taxonomyGenus} | Confidence: ${Math.round((result.confidence ?? 0) * 100)}%`
@@ -395,6 +440,14 @@ const applyInsectIdentification = (result: InsectIdentificationResponse) => {
   ]
 
   tagsInput.value = mergeUniqueTags(tagsInput.value, tagCandidates)
+  identifiedSpeciesMetadata.value = {
+    speciesType: 'insect',
+    scientificName: result.scientificName,
+    taxonomyOrder: result.taxonomyOrder,
+    taxonomyFamily: result.taxonomyFamily,
+    taxonomyGenus: result.taxonomyGenus,
+    commonNames: normalizeCommonNames(result.commonNames),
+  }
   identificationDone.value = true
   lastIdentificationType.value = 'insect'
 }
@@ -447,6 +500,7 @@ const onFileChange = async (e: Event) => {
   isWildlife.value = true
   coordinates.value = null
   coordinateSource.value = null
+  identifiedSpeciesMetadata.value = {}
 
   if (!ALLOWED_TYPES.includes(selected.type)) {
     validationError.value = `Invalid file type. Allowed: JPEG, PNG, WebP, GIF.`
@@ -507,6 +561,7 @@ const removeFile = () => {
   isWildlife.value = true
   coordinates.value = null
   coordinateSource.value = null
+  identifiedSpeciesMetadata.value = {}
   if (preview.value) {
     URL.revokeObjectURL(preview.value)
     preview.value = null
@@ -525,6 +580,12 @@ const handleSubmit = async () => {
       title: title.value || file.value.name,
       description: description.value,
       tags: tags.value,
+      speciesType: identifiedSpeciesMetadata.value.speciesType,
+      scientificName: identifiedSpeciesMetadata.value.scientificName,
+      taxonomyOrder: identifiedSpeciesMetadata.value.taxonomyOrder,
+      taxonomyFamily: identifiedSpeciesMetadata.value.taxonomyFamily,
+      taxonomyGenus: identifiedSpeciesMetadata.value.taxonomyGenus,
+      commonNames: identifiedSpeciesMetadata.value.commonNames,
       latitude: coordinates.value?.latitude,
       longitude: coordinates.value?.longitude,
     })
@@ -538,6 +599,7 @@ const handleSubmit = async () => {
       tagsInput.value = ''
       uploadSuccess.value = false
       reset()
+      identifiedSpeciesMetadata.value = {}
       emit('uploaded')
     }, 2000)
   } catch {

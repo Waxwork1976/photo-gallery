@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import type { ImageDto } from '~/types/image'
+import { useTranslations } from '~/composables/useTranslations'
 
 const props = defineProps<{
   image: ImageDto
@@ -10,6 +11,7 @@ const emit = defineEmits<{
 }>()
 
 const loaded = ref(false)
+const { locale } = useTranslations()
 
 /** Human-readable file size. */
 const formattedSize = computed(() => {
@@ -17,6 +19,11 @@ const formattedSize = computed(() => {
   if (bytes < 1024) return `${bytes} B`
   if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`
   return `${(bytes / (1024 * 1024)).toFixed(1)} MB`
+})
+
+const localizedCommonName = computed(() => {
+  const commonNames = props.image.commonNames ?? {}
+  return commonNames[locale.value] || commonNames.en || props.image.scientificName || ''
 })
 </script>
 
@@ -59,11 +66,13 @@ const formattedSize = computed(() => {
     <!-- Card body -->
     <div class="px-4 py-3">
       <h3 class="truncate text-sm font-semibold text-stone-800 group-hover:text-emerald-700 transition-colors">
-        {{ image.title || 'Untitled' }}
+        {{ image.title || localizedCommonName || 'Untitled' }}
       </h3>
 
-      <p v-if="image.description" class="mt-0.5 line-clamp-2 text-xs text-stone-500">
-        {{ image.description }}
+      <p v-if="localizedCommonName || image.description" class="mt-0.5 line-clamp-2 text-xs text-stone-500">
+        <span v-if="localizedCommonName">{{ localizedCommonName }}</span>
+        <span v-if="localizedCommonName && image.description"> — </span>
+        <span v-if="image.description">{{ image.description }}</span>
       </p>
 
       <div class="mt-2 flex flex-wrap items-center gap-1.5">

@@ -13,6 +13,12 @@ public sealed record SaveMetadataRequest(
     string Title,
     string Description,
     string[] Tags,
+    string? SpeciesType,
+    string? ScientificName,
+    string? TaxonomyOrder,
+    string? TaxonomyFamily,
+    string? TaxonomyGenus,
+    Dictionary<string, string>? CommonNames,
     string ContentType,
     long SizeBytes,
     int? Width = null,
@@ -25,7 +31,13 @@ public sealed record SaveMetadataRequest(
 public sealed record UpdateMetadataRequest(
     string Title,
     string Description,
-    string[] Tags
+    string[] Tags,
+    string? SpeciesType = null,
+    string? ScientificName = null,
+    string? TaxonomyOrder = null,
+    string? TaxonomyFamily = null,
+    string? TaxonomyGenus = null,
+    Dictionary<string, string>? CommonNames = null
 );
 
 public sealed record ManageFolderTreeRequest(

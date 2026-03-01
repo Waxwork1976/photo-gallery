@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import type { ImageDto } from '~/types/image'
+import { useTranslations } from '~/composables/useTranslations'
 
 const props = defineProps<{
   image: ImageDto | null
@@ -23,6 +24,14 @@ onUnmounted(() => {
 })
 
 const imageLoaded = ref(false)
+const { locale } = useTranslations()
+
+const localizedCommonName = computed(() => {
+  const image = props.image
+  if (!image) return ''
+  const commonNames = image.commonNames ?? {}
+  return commonNames[locale.value] || commonNames.en || image.scientificName || ''
+})
 
 watch(
   () => props.image,
@@ -75,7 +84,7 @@ watch(
           <!-- Caption -->
           <div v-if="imageLoaded" class="text-center">
             <h2 class="text-lg font-semibold text-white">
-              {{ image.title || 'Untitled' }}
+              {{ localizedCommonName || image.title || 'Untitled' }}
             </h2>
             <p v-if="image.description" class="mt-1 max-w-xl text-sm text-white/70">
               {{ image.description }}

@@ -3,7 +3,7 @@ import type { FolderTreeNodeDto, ImageDto } from '~/types/image'
 import { useTranslations } from '~/composables/useTranslations'
 
 const api = useApi()
-const { t } = useTranslations()
+const { t, locale } = useTranslations()
 
 const images = ref<ImageDto[]>([])
 const loading = ref(true)
@@ -19,6 +19,11 @@ const slideshowIntervalSeconds = ref(4)
 const slideshowPhotoCount = ref(8)
 const slideshowTransitionSeconds = ref(0.8)
 const slideshowSeed = ref(0)
+const searchQuery = ref('')
+const searchSuggestions = ref<string[]>([])
+const searchLoading = ref(false)
+const searchError = ref<string | null>(null)
+let searchDebounceTimer: ReturnType<typeof setTimeout> | null = null
 
 const fetchImages = async () => {
   loading.value = true
@@ -280,6 +285,116 @@ const leafImages = computed(() => {
 
 const folderCardPreviewMap = ref<Record<string, ImageDto | null>>({})
 
+const normalizeSearchText = (value: string) => value.trim().toLowerCase()
+
+const searchableTextForImage = (image: ImageDto) => {
+  const parts: string[] = [
+    image.title ?? '',
+    image.description ?? '',
+    ...(image.tags ?? []),
+    image.scientificName ?? '',
+    image.taxonomyOrder ?? '',
+    image.taxonomyFamily ?? '',
+    image.taxonomyGenus ?? '',
+  ]
+
+  const localizedCommon = image.commonNames?.[locale.value]
+  const englishCommon = image.commonNames?.en
+  if (localizedCommon) parts.push(localizedCommon)
+  if (englishCommon && englishCommon !== localizedCommon) parts.push(englishCommon)
+  if (image.commonNames) {
+    parts.push(...Object.values(image.commonNames))
+  }
+
+  return normalizeSearchText(parts.join(' '))
+}
+
+const buildContextSuggestionSet = (images: ImageDto[]) => {
+  const values = new Set<string>()
+  for (const image of images) {
+    for (const tag of image.tags ?? []) {
+      const cleaned = (tag ?? '').trim()
+      if (cleaned) values.add(cleaned.toLowerCase())
+    }
+
+    for (const field of [
+      image.scientificName,
+      image.taxonomyOrder,
+      image.taxonomyFamily,
+      image.taxonomyGenus,
+    ]) {
+      const cleaned = (field ?? '').trim()
+      if (cleaned) values.add(cleaned.toLowerCase())
+    }
+
+    for (const commonName of Object.values(image.commonNames ?? {})) {
+      const cleaned = (commonName ?? '').trim()
+      if (cleaned) values.add(cleaned.toLowerCase())
+    }
+  }
+  return values
+}
+
+const activeSearchSourceImages = computed(() => {
+  if (activeViewMode.value === 'leaf') return leafImages.value
+  return activeSlideshowSourceImages.value
+})
+
+const filteredSearchImages = computed(() => {
+  const query = normalizeSearchText(searchQuery.value)
+  if (!query) return activeSearchSourceImages.value
+
+  return activeSearchSourceImages.value.filter((img) => {
+    const searchable = searchableTextForImage(img)
+    return searchable.includes(query)
+  })
+})
+
+const isSearchActive = computed(() => normalizeSearchText(searchQuery.value).length > 0)
+
+const clearSearch = () => {
+  searchQuery.value = ''
+  searchSuggestions.value = []
+  searchError.value = null
+}
+
+const runSearchSuggestions = async (query: string) => {
+  const normalized = normalizeSearchText(query)
+  if (normalized.length < 3) {
+    searchSuggestions.value = []
+    searchError.value = null
+    return
+  }
+
+  searchLoading.value = true
+  searchError.value = null
+  try {
+    const response = await api.getSearchSuggestions(normalized, locale.value, 12)
+    const contextValues = buildContextSuggestionSet(activeSearchSourceImages.value)
+    searchSuggestions.value = response.suggestions
+      .map(item => item.value)
+      .filter(value => contextValues.has(value.trim().toLowerCase()))
+  } catch {
+    searchSuggestions.value = []
+    searchError.value = t('gallery.search.loadError')
+  } finally {
+    searchLoading.value = false
+  }
+}
+
+watch(searchQuery, (value) => {
+  if (searchDebounceTimer) clearTimeout(searchDebounceTimer)
+  searchDebounceTimer = setTimeout(() => {
+    runSearchSuggestions(value)
+  }, 250)
+})
+
+watch(locale, () => {
+  if (normalizeSearchText(searchQuery.value).length >= 3) {
+    runSearchSuggestions(searchQuery.value)
+  }
+})
+
 watch(
   [activeDisplayFolderNodes, images, selectedPrimaryFolderPath, selectedYearMonthPath, folderMode],
   () => {
@@ -337,6 +452,13 @@ onMounted(() => {
   fetchSlideshowSettings()
 })
 
+onUnmounted(() => {
+  if (searchDebounceTimer) {
+    clearTimeout(searchDebounceTimer)
+    searchDebounceTimer = null
+  }
+})
+
 useHead({
   title: 'Photo Paccots — Gallery',
 })
@@ -364,6 +486,52 @@ useHead({
       </h1>
       <p class="mt-2 text-base text-stone-500">
         {{ t('gallery.subtitle') }}
+      </p>
+    </section>
+
+    <section class="mb-6 space-y-2">
+      <div class="flex flex-col gap-2 sm:flex-row">
+        <input
+          v-model="searchQuery"
+          type="text"
+          class="ui-input sm:flex-1"
+          :placeholder="t('gallery.search.placeholder')"
+        >
+        <button
+          v-if="isSearchActive"
+          type="button"
+          class="btn-secondary"
+          @click="clearSearch"
+        >
+          {{ t('gallery.search.clear') }}
+        </button>
+      </div>
+
+      <p v-if="searchError" class="text-xs text-red-600">
+        {{ searchError }}
+      </p>
+
+      <div v-if="normalizeSearchText(searchQuery).length >= 3 && searchSuggestions.length" class="rounded-lg border border-stone-200 bg-white p-2">
+        <p class="px-2 pb-1 text-xs font-medium text-stone-500">
+          {{ t('gallery.search.suggestions') }}
+        </p>
+        <div class="flex flex-wrap gap-1.5">
+          <button
+            v-for="suggestion in searchSuggestions"
+            :key="suggestion"
+            type="button"
+            class="btn-secondary rounded-md px-2 py-1 text-xs"
+            @click="searchQuery = suggestion"
+          >
+            {{ suggestion }}
+          </button>
+        </div>
+      </div>
+      <p v-else-if="normalizeSearchText(searchQuery).length > 0 && normalizeSearchText(searchQuery).length < 3" class="text-xs text-stone-500">
+        {{ t('gallery.search.minChars', { count: 3 }) }}
+      </p>
+      <p v-if="searchLoading" class="text-xs text-stone-500">
+        {{ t('gallery.search.loading') }}
       </p>
     </section>
 
@@ -414,6 +582,20 @@ useHead({
           :images="[]"
           :loading="true"
         />
+
+        <template v-else-if="isSearchActive">
+          <p class="text-sm text-stone-600">
+            {{ t('gallery.search.resultsCount', { count: filteredSearchImages.length }) }}
+          </p>
+          <GalleryImageGrid
+            :images="filteredSearchImages"
+            :loading="false"
+            @select="selectedImage = $event"
+          />
+          <p v-if="filteredSearchImages.length === 0" class="text-sm text-stone-500">
+            {{ t('gallery.search.noResults') }}
+          </p>
+        </template>
 
         <template v-else-if="activeViewMode === 'leaf'">
           <GalleryImageGrid

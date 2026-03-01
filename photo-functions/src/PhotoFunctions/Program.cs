@@ -38,6 +38,7 @@ var host = new HostBuilder()
         services.AddHttpClient<IPlantIdentificationService, PlantIdentificationService>();
         services.AddHttpClient<IBirdIdentificationService, BirdIdentificationService>();
         services.AddHttpClient<IInsectIdentificationService, InsectIdentificationService>();
+        services.AddHttpClient<ISpeciesCommonNameService, SpeciesCommonNameService>();
     })
     .Build();
 
