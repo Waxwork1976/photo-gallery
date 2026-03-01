@@ -118,12 +118,20 @@ To run the full application (gallery + upload + plant/bird identification), thes
     - `BirdApi__ResultsCount` (example: `5`)
     - `BirdApi__MinProbability` (example: `0.5`)
 
+- **Google Gemini API** (required for insect identification)
+  - Create a Google AI API key for Gemini.
+  - Configure in Function App settings:
+    - `Gemini__ApiKey`
+    - `Gemini__Model` (example: `gemini-3-flash-preview`)
+    - `Gemini__BaseUrl` (expected: `https://generativelanguage.googleapis.com`)
+    - `Gemini__TimeoutSeconds` (example: `30`)
+
 #### External API registration checklist
 
 1. PlantNet key created and active.
 2. RapidAPI account created.
 3. RapidAPI subscription for bird classifier is active.
-4. `PlantNet__ApiKey` and `BirdApi__ApiKey` are set in Function App settings.
+4. `PlantNet__ApiKey`, `BirdApi__ApiKey`, and `Gemini__ApiKey` are set in Function App settings.
 5. Function App restarted after setting/rotating API keys.
 
 ### 3) Required Function App Settings
@@ -145,6 +153,10 @@ At minimum, set all of the following on Azure Function App:
 - `BirdApi__Path`
 - `BirdApi__ResultsCount`
 - `BirdApi__MinProbability`
+- `Gemini__ApiKey`
+- `Gemini__Model`
+- `Gemini__BaseUrl`
+- `Gemini__TimeoutSeconds`
 - `Translator__Endpoint`
 - `Translator__ApiKey`
 - `Translator__Region`
@@ -213,6 +225,7 @@ Runs at `http://localhost:7071`.
 | `/api/manage-slideshow-settings` | GET/PUT | Bearer JWT | Read/update slideshow settings |
 | `/api/identify-plant` | POST | Bearer JWT | Identify plant using PlantNet |
 | `/api/identify-bird` | POST | Bearer JWT | Identify bird using RapidAPI |
+| `/api/identify-insect` | POST | Bearer JWT | Identify insect using Gemini (returns common name + scientific taxonomy) |
 
 ## Deployment
 
@@ -243,6 +256,11 @@ Deployment scripts are in `InstallationScripts/` (gitignored). Run in order:
   - `Translator__Endpoint`
   - `Translator__ApiKey`
   - `Translator__Region`
+- If Gemini settings were missing/rotated after deployment, run `fix_add_gemini_settings.sh` to update only:
+  - `Gemini__ApiKey`
+  - `Gemini__Model`
+  - `Gemini__BaseUrl`
+  - `Gemini__TimeoutSeconds`
 
 ### Example (bash)
 
@@ -263,6 +281,20 @@ export FUNCTION_APP_NAME="wax-photogallery-api"
 export COG_ACCOUNT_NAME="waxphotogallerytranslator"
 
 ./InstallationScripts/fix_add_translation_key.sh
+```
+
+### Fix Gemini settings only
+
+```bash
+export RG_NAME="rg-photo-gallery"
+export FUNCTION_APP_NAME="wax-photogallery-api"
+export GEMINI_API_KEY="<your-gemini-api-key>"
+# Optional:
+# export GEMINI_MODEL="gemini-3-flash-preview"
+# export GEMINI_BASE_URL="https://generativelanguage.googleapis.com"
+# export GEMINI_TIMEOUT_SECONDS="30"
+
+./InstallationScripts/fix_add_gemini_settings.sh
 ```
 
 ## Security

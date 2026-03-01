@@ -21,6 +21,8 @@ var host = new HostBuilder()
             configuration.GetSection(PlantNetOptions.SectionName));
         services.Configure<BirdApiOptions>(
             configuration.GetSection(BirdApiOptions.SectionName));
+        services.Configure<GeminiOptions>(
+            configuration.GetSection(GeminiOptions.SectionName));
         services.Configure<TranslatorOptions>(
             configuration.GetSection(TranslatorOptions.SectionName));
 
@@ -35,6 +37,7 @@ var host = new HostBuilder()
 
         services.AddHttpClient<IPlantIdentificationService, PlantIdentificationService>();
         services.AddHttpClient<IBirdIdentificationService, BirdIdentificationService>();
+        services.AddHttpClient<IInsectIdentificationService, InsectIdentificationService>();
     })
     .Build();
 

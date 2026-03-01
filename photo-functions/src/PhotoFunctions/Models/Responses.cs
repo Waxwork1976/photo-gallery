@@ -94,3 +94,14 @@ public sealed record HealthResponse(
     string Timestamp,
     string Version
 );
+
+/// <summary>Normalized insect identification result returned to the frontend.</summary>
+public sealed record InsectIdentificationResponse(
+    bool Accepted,
+    double Confidence,
+    string CommonName,
+    string ScientificName,
+    string TaxonomyOrder,
+    string TaxonomyFamily,
+    string TaxonomyGenus
+);

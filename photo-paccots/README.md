@@ -10,6 +10,7 @@ Nuxt 3 static site for the Photo Paccots gallery.
   - full image grid at leaf level
 - Configurable slideshow behavior (photo count, interval, fade transition)
 - Upload and management pages for authenticated users
+- AI identification helpers for plants, birds, and insects during upload
 - Translation management with per-key lock/unlock for auto-translation
 - Public `Thanks to:` page available from footer (`/powered-by`)
 
