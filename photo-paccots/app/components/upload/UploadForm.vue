@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { MagnifyingGlassIcon, PhotoIcon, SparklesIcon, XMarkIcon } from '@heroicons/vue/24/outline'
+import type { InsectIdentificationResponse } from '~/types/insect'
 import type { PlantNetResult } from '~/types/plantnet'
 import { useTranslations } from '~/composables/useTranslations'
 
@@ -10,7 +11,7 @@ const emit = defineEmits<{
 const { state, uploadImage, reset } = useUpload()
 const api = useApi()
 const { user } = useAuth()
-const { t } = useTranslations()
+const { t, locale } = useTranslations()
 
 const ALLOWED_TYPES = ['image/jpeg', 'image/png', 'image/webp', 'image/gif']
 const MAX_SIZE_MB = 10
@@ -34,7 +35,7 @@ const isIdentifying = ref(false)
 const identifyError = ref<string | null>(null)
 const identifyLowConfidence = ref<string | null>(null)
 const identificationDone = ref(false)
-const lastIdentificationType = ref<'plant' | 'bird' | null>(null)
+const lastIdentificationType = ref<'plant' | 'bird' | 'insect' | null>(null)
 const plantMatches = ref<PlantNetResult[]>([])
 const showPlantChooser = ref(false)
 const selectedPlantResult = ref<PlantNetResult | null>(null)
@@ -362,6 +363,74 @@ const identifyBird = async () => {
   }
 }
 
+const mergeUniqueTags = (current: string, nextOrderedTags: string[]) => {
+  const existing = current
+    .split(',')
+    .map((value) => value.trim())
+    .filter(Boolean)
+
+  const merged = new Set<string>(existing)
+  for (const value of nextOrderedTags) {
+    const normalized = value.trim()
+    if (normalized) {
+      merged.add(normalized)
+    }
+  }
+
+  return Array.from(merged).join(', ')
+}
+
+const applyInsectIdentification = (result: InsectIdentificationResponse) => {
+  const userName = user.value?.name ?? 'unknown'
+  const displayName = result.commonName || result.scientificName || 'insect'
+  title.value = `${formatDateTime()}-${displayName}-${userName}`
+
+  description.value = `${result.scientificName} | Order: ${result.taxonomyOrder} | Family: ${result.taxonomyFamily} | Genus: ${result.taxonomyGenus} | Confidence: ${Math.round((result.confidence ?? 0) * 100)}%`
+
+  const tagCandidates = [
+    'insect',
+    result.taxonomyFamily,
+    result.taxonomyGenus,
+    result.scientificName,
+  ]
+
+  tagsInput.value = mergeUniqueTags(tagsInput.value, tagCandidates)
+  identificationDone.value = true
+  lastIdentificationType.value = 'insect'
+}
+
+const identifyInsect = async () => {
+  if (!file.value) return
+
+  isIdentifying.value = true
+  identifyError.value = null
+  identifyLowConfidence.value = null
+  plantMatches.value = []
+  showPlantChooser.value = false
+  selectedPlantResult.value = null
+
+  try {
+    const response = await api.identifyInsect(file.value, locale.value)
+    if (!response.accepted) {
+      identifyLowConfidence.value = t('upload.identification.lowConfidenceInsect', {
+        score: Math.round((response.confidence ?? 0) * 100),
+      })
+      identificationDone.value = false
+      lastIdentificationType.value = null
+      return
+    }
+
+    applyInsectIdentification(response)
+  } catch (err: unknown) {
+    const message = err instanceof Error
+      ? err.message
+      : (err as { message?: string })?.message ?? 'Insect identification failed'
+    identifyError.value = message
+  } finally {
+    isIdentifying.value = false
+  }
+}
+
 const onFileChange = async (e: Event) => {
   const input = e.target as HTMLInputElement
   const selected = input.files?.[0]
@@ -586,17 +655,39 @@ watch(isWildlife, () => {
             <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4" />
             <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
           </svg>
-          Identifying bird...
+          {{ t('upload.identification.identifyingBird') }}
         </template>
         <template v-else>
           <SparklesIcon class="h-5 w-5" />
-          Identify bird
+          {{ t('upload.identification.identifyBird') }}
+        </template>
+      </button>
+
+      <button
+        type="button"
+        class="ui-focus-ring ui-transition-color flex w-full items-center justify-center gap-2 rounded-lg border-2 px-4 py-3 text-sm font-semibold"
+        :class="identificationDone && lastIdentificationType === 'insect'
+          ? 'border-violet-500 bg-violet-50 text-violet-700'
+          : 'border-stone-200 bg-white text-stone-600 hover:border-violet-300 hover:bg-violet-50/50'"
+        :disabled="isIdentifying"
+        @click="identifyInsect"
+      >
+        <template v-if="isIdentifying">
+          <svg class="h-4 w-4 animate-spin" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+            <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4" />
+            <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
+          </svg>
+          {{ t('upload.identification.identifyingInsect') }}
+        </template>
+        <template v-else>
+          <SparklesIcon class="h-5 w-5" />
+          {{ t('upload.identification.identifyInsect') }}
         </template>
       </button>
 
       <!-- Identification result -->
       <div v-if="identificationDone" class="alert-success">
-        {{ lastIdentificationType === 'bird' ? 'Bird identified!' : 'Plant identified!' }} Fields have been filled automatically.
+        {{ lastIdentificationType === 'bird' ? t('upload.identification.resultBird') : (lastIdentificationType === 'insect' ? t('upload.identification.resultInsect') : t('upload.identification.resultPlant')) }} {{ t('upload.identification.resultFilled') }}
       </div>
 
       <!-- Low-confidence message -->

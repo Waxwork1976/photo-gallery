@@ -14,6 +14,7 @@ import type {
   UpdateMetadataResponse,
 } from '~/types/image'
 import type { BirdIdentificationResponse } from '~/types/bird'
+import type { InsectIdentificationResponse } from '~/types/insect'
 import type { PlantNetResponse } from '~/types/plantnet'
 import type {
   ManageTranslationsResponse,
@@ -329,6 +330,46 @@ export const useApi = () => {
     return response.json() as Promise<BirdIdentificationResponse>
   }
 
+  /** Identify an insect from an image via the Gemini pass-through endpoint. */
+  const identifyInsect = async (
+    image: File,
+    locale: string,
+  ): Promise<InsectIdentificationResponse> => {
+    const token = await getAccessToken()
+
+    const formData = new FormData()
+    formData.append('image', image)
+    formData.append('locale', locale)
+
+    const headers: Record<string, string> = {}
+    if (token) {
+      headers.Authorization = `Bearer ${token}`
+    }
+
+    const response = await fetch(`${baseUrl}/api/identify-insect`, {
+      method: 'POST',
+      headers,
+      body: formData,
+    })
+
+    if (!response.ok) {
+      let detail = ''
+      try {
+        const body = await response.json()
+        detail = body?.error ?? body?.message ?? JSON.stringify(body)
+      } catch {
+        detail = response.statusText || 'Unknown error'
+      }
+      const error: ApiError = {
+        message: `API error (${response.status}): ${detail}`,
+        statusCode: response.status,
+      }
+      throw error
+    }
+
+    return response.json() as Promise<InsectIdentificationResponse>
+  }
+
   return {
     listImages,
     getFolderTree,
@@ -351,5 +392,6 @@ export const useApi = () => {
     uploadToBlob,
     identifyPlant,
     identifyBird,
+    identifyInsect,
   }
 }

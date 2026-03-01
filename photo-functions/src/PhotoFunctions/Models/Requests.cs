@@ -56,3 +56,8 @@ public sealed record ManageSlideshowSettingsRequest(
     int IntervalSeconds,
     double TransitionSeconds
 );
+
+/// <summary>Request payload metadata for insect identification.</summary>
+public sealed record InsectIdentificationRequest(
+    string Locale
+);
