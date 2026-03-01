@@ -24,6 +24,10 @@ const searchSuggestions = ref<string[]>([])
 const searchLoading = ref(false)
 const searchError = ref<string | null>(null)
 let searchDebounceTimer: ReturnType<typeof setTimeout> | null = null
+type BreadcrumbItem = {
+  label: string
+  path: string | null
+}
 
 const fetchImages = async () => {
   loading.value = true
@@ -93,6 +97,17 @@ const imageInFolderSubtree = (img: ImageDto, selected: string) => {
 
 const imagesForSubtree = (path: string) => images.value.filter(img => imageInFolderSubtree(img, path))
 
+const findFirstPrimaryLeafPath = (node: FolderTreeNodeDto | null): string | null => {
+  if (!node) return null
+  if ((node.children?.length ?? 0) === 0) return node.path
+
+  for (const child of node.children ?? []) {
+    const leafPath = findFirstPrimaryLeafPath(child)
+    if (leafPath) return leafPath
+  }
+  return null
+}
+
 const shuffled = (input: ImageDto[]) => {
   const arr = [...input]
   for (let i = arr.length - 1; i > 0; i--) {
@@ -157,6 +172,17 @@ type YearMonthNode = {
   name: string
   path: string
   children: YearMonthNode[]
+}
+
+const findFirstYearMonthLeafPath = (node: YearMonthNode | null): string | null => {
+  if (!node) return null
+  if ((node.children?.length ?? 0) === 0) return node.path
+
+  for (const child of node.children ?? []) {
+    const leafPath = findFirstYearMonthLeafPath(child)
+    if (leafPath) return leafPath
+  }
+  return null
 }
 
 const yearMonthTree = computed<YearMonthNode[]>(() => {
@@ -396,6 +422,46 @@ watch(locale, () => {
 })
 
 watch(
+  [folderMode, selectedPrimaryFolderPath, selectedPrimaryNode, images, folderTree, folderTagRules],
+  () => {
+    if (folderMode.value !== 'primary') return
+    const selectedPath = selectedPrimaryFolderPath.value
+    const selectedNode = selectedPrimaryNode.value
+    if (!selectedPath || !selectedNode) return
+    if ((selectedNode.children?.length ?? 0) === 0) return
+
+    const subtreeCount = imagesForSubtree(selectedPath).length
+    if (subtreeCount >= 2) return
+
+    const targetLeafPath = findFirstPrimaryLeafPath(selectedNode)
+    if (!targetLeafPath || targetLeafPath === selectedPath) return
+
+    selectedPrimaryFolderPath.value = targetLeafPath
+  },
+  { immediate: true },
+)
+
+watch(
+  [folderMode, selectedYearMonthPath, selectedYearMonthNode, yearMonthTree, primaryContextImages],
+  () => {
+    if (folderMode.value !== 'yearMonth') return
+    const selectedPath = selectedYearMonthPath.value
+    const selectedNode = selectedYearMonthNode.value
+    if (!selectedPath || !selectedNode) return
+    if ((selectedNode.children?.length ?? 0) === 0) return
+
+    const subtreeCount = yearMonthImagesForPath(selectedPath).length
+    if (subtreeCount >= 2) return
+
+    const targetLeafPath = findFirstYearMonthLeafPath(selectedNode)
+    if (!targetLeafPath || targetLeafPath === selectedPath) return
+
+    selectedYearMonthPath.value = targetLeafPath
+  },
+  { immediate: true },
+)
+
+watch(
   [activeDisplayFolderNodes, images, selectedPrimaryFolderPath, selectedYearMonthPath, folderMode],
   () => {
     const next: Record<string, ImageDto | null> = {}
@@ -429,6 +495,77 @@ const localizedFolderLabel = (node: FolderTreeNodeDto) => {
     if (translated !== key) return translated
   }
   return humanizeSegment(node.name) || node.name
+}
+
+const primaryLabelForPath = (path: string) => {
+  if (path === 'photos') {
+    const key = folderRootLabels.value[path] || 'folders.root.photos'
+    const translated = t(key)
+    return translated === key ? 'Photos' : translated
+  }
+
+  const node = treeIndex.value.get(path)
+  if (node)
+    return localizedFolderLabel(node)
+
+  const parts = path.split('/').filter(Boolean)
+  return humanizeSegment(parts[parts.length - 1] || path)
+}
+
+const getPrimaryBreadcrumb = (): BreadcrumbItem[] => {
+  const items: BreadcrumbItem[] = [{ label: primaryLabelForPath('photos'), path: null }]
+  const selectedPath = selectedPrimaryFolderPath.value
+  if (!selectedPath)
+    return items
+
+  const parts = normalizePath(selectedPath).split('/').filter(Boolean)
+  let cumulative = ''
+  for (const part of parts) {
+    cumulative = cumulative ? `${cumulative}/${part}` : part
+    if (cumulative === 'photos')
+      continue
+    items.push({
+      label: primaryLabelForPath(cumulative),
+      path: cumulative,
+    })
+  }
+
+  return items
+}
+
+const getYearMonthBreadcrumb = (): BreadcrumbItem[] => {
+  const items: BreadcrumbItem[] = [{ label: t('folders.mode.yearMonth'), path: null }]
+  const selectedPath = selectedYearMonthPath.value
+  if (!selectedPath)
+    return items
+
+  const match = selectedPath.match(/^ym\/(\d{4})(?:\/(\d{2}))?$/)
+  if (!match)
+    return items
+
+  const year = match[1]
+  if (!year)
+    return items
+  const month = match[2]
+  items.push({ label: year, path: `ym/${year}` })
+  if (month) {
+    items.push({ label: month, path: `ym/${year}/${month}` })
+  }
+  return items
+}
+
+const activeBreadcrumb = computed(() => {
+  return folderMode.value === 'primary'
+    ? getPrimaryBreadcrumb()
+    : getYearMonthBreadcrumb()
+})
+
+const navigateToBreadcrumb = (path: string | null) => {
+  if (folderMode.value === 'primary') {
+    selectedPrimaryFolderPath.value = path
+    return
+  }
+  selectedYearMonthPath.value = path
 }
 
 const folderCards = computed(() => {
@@ -577,6 +714,26 @@ useHead({
       </section>
 
       <section class="min-w-0 space-y-6">
+        <nav class="overflow-x-auto rounded-md border border-stone-200 bg-white px-2 py-1 text-xs text-stone-600">
+          <ol class="flex min-w-max items-center gap-1">
+            <li
+              v-for="(item, idx) in activeBreadcrumb"
+              :key="`${item.path ?? 'root'}-${idx}`"
+              class="flex items-center gap-1"
+            >
+              <button
+                type="button"
+                class="ui-focus-ring ui-transition-color rounded px-1 py-0.5"
+                :class="idx === activeBreadcrumb.length - 1 ? 'font-semibold text-stone-900' : 'hover:bg-stone-100 hover:text-stone-800'"
+                @click="navigateToBreadcrumb(item.path)"
+              >
+                {{ item.label }}
+              </button>
+              <span v-if="idx < activeBreadcrumb.length - 1" class="text-stone-400">/</span>
+            </li>
+          </ol>
+        </nav>
+
         <GalleryImageGrid
           v-if="loading"
           :images="[]"
