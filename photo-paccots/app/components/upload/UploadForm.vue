@@ -1,5 +1,7 @@
 <script setup lang="ts">
 import { MagnifyingGlassIcon, PhotoIcon, SparklesIcon, XMarkIcon } from '@heroicons/vue/24/outline'
+import type { PlantNetResult } from '~/types/plantnet'
+import { useTranslations } from '~/composables/useTranslations'
 
 const emit = defineEmits<{
   uploaded: []
@@ -8,11 +10,13 @@ const emit = defineEmits<{
 const { state, uploadImage, reset } = useUpload()
 const api = useApi()
 const { user } = useAuth()
+const { t } = useTranslations()
 
 const ALLOWED_TYPES = ['image/jpeg', 'image/png', 'image/webp', 'image/gif']
 const MAX_SIZE_MB = 10
 const MAX_SIZE_BYTES = MAX_SIZE_MB * 1024 * 1024
 const GEOLOCATION_TIMEOUT_MS = 5000
+const MIN_PLANT_CONFIDENCE = 0.5
 
 // Form fields
 const file = ref<File | null>(null)
@@ -31,6 +35,10 @@ const identifyError = ref<string | null>(null)
 const identifyLowConfidence = ref<string | null>(null)
 const identificationDone = ref(false)
 const lastIdentificationType = ref<'plant' | 'bird' | null>(null)
+const plantMatches = ref<PlantNetResult[]>([])
+const showPlantChooser = ref(false)
+const selectedPlantResult = ref<PlantNetResult | null>(null)
+const isWildlife = ref(true)
 
 /** Derive tags array from comma-separated string. */
 const tags = computed(() =>
@@ -186,52 +194,107 @@ const getExifCoordinates = async (selected: File): Promise<{ latitude: number, l
   return null
 }
 
+const applyPlantSelection = (result: PlantNetResult, options: { updateText?: boolean } = {}) => {
+  const { updateText = true } = options
+  const species = result.species
+
+  if (updateText) {
+    const commonName = species.commonNames?.[0] ?? species.scientificNameWithoutAuthor
+    const userName = user.value?.name ?? 'unknown'
+    title.value = `${formatDateTime()}-${commonName}-${userName}`
+
+    const descParts = [
+      species.scientificName,
+      `Genus: ${species.genus.scientificNameWithoutAuthor}`,
+      `Family: ${species.family.scientificNameWithoutAuthor}`,
+    ]
+    if (result.score !== undefined) {
+      descParts.push(`Confidence: ${Math.round(result.score * 100)}%`)
+    }
+    description.value = descParts.join(' | ')
+  }
+
+  const orderedTags = [
+    'plant',
+    isWildlife.value ? 'wildlife' : 'cultivated',
+    species.family.scientificNameWithoutAuthor,
+    species.genus.scientificNameWithoutAuthor,
+    species.scientificName,
+  ]
+  const nextTags = new Set<string>()
+  for (const tag of orderedTags) {
+    const value = tag?.trim()
+    if (value) nextTags.add(value)
+  }
+  tagsInput.value = Array.from(nextTags).join(', ')
+
+  selectedPlantResult.value = result
+  identificationDone.value = true
+  lastIdentificationType.value = 'plant'
+}
+
+const selectLowConfidencePlantMatch = (result: PlantNetResult) => {
+  applyPlantSelection(result)
+  showPlantChooser.value = false
+  identifyLowConfidence.value = null
+}
+
+const getPlantCandidateImage = (result: PlantNetResult): string | null => {
+  const media = [...(result.images ?? []), ...(result.similarImages ?? [])]
+  for (const item of media) {
+    if (!item) continue
+
+    if (typeof item.image === 'string' && item.image.trim()) {
+      return item.image
+    }
+
+    const urlValue = item.url
+    if (typeof urlValue === 'string' && urlValue.trim()) {
+      return urlValue
+    }
+
+    if (urlValue && typeof urlValue === 'object') {
+      const best = urlValue.m ?? urlValue.o ?? urlValue.s
+      if (typeof best === 'string' && best.trim()) {
+        return best
+      }
+    }
+  }
+  return null
+}
+
 const identifyPlant = async () => {
   if (!file.value) return
 
   isIdentifying.value = true
   identifyError.value = null
   identifyLowConfidence.value = null
+  plantMatches.value = []
+  showPlantChooser.value = false
+  selectedPlantResult.value = null
+  isWildlife.value = true
 
   try {
     const response = await api.identifyPlant([file.value])
 
     const topResult = response.results?.[0]
     if (topResult) {
-      const species = topResult.species
-
-      const commonName = species.commonNames?.[0] ?? species.scientificNameWithoutAuthor
-      const userName = user.value?.name ?? 'unknown'
-      title.value = `${formatDateTime()}-${commonName}-${userName}`
-
-      const descParts = [
-        species.scientificName,
-        `Genus: ${species.genus.scientificNameWithoutAuthor}`,
-        `Family: ${species.family.scientificNameWithoutAuthor}`,
-      ]
-      if (topResult.score !== undefined) {
-        descParts.push(`Confidence: ${Math.round(topResult.score * 100)}%`)
+      const score = topResult.score ?? 0
+      if (score < MIN_PLANT_CONFIDENCE) {
+        identifyLowConfidence.value = t('upload.identification.lowConfidencePlant', {
+          score: Math.round(score * 100),
+          threshold: Math.round(MIN_PLANT_CONFIDENCE * 100),
+        })
+        plantMatches.value = (response.results ?? []).slice(0, 5)
+        showPlantChooser.value = plantMatches.value.length > 0
+        identificationDone.value = false
+        lastIdentificationType.value = null
+        return
       }
-      description.value = descParts.join(' | ')
 
-      const orderedTags = [
-        'plant',
-        species.family.scientificNameWithoutAuthor,
-        species.genus.scientificNameWithoutAuthor,
-        species.scientificName,
-      ]
-      const nextTags = new Set<string>()
-      for (const t of orderedTags) {
-        const v = t?.trim()
-        if (v)
-          nextTags.add(v)
-      }
-      tagsInput.value = Array.from(nextTags).join(', ')
-
-      identificationDone.value = true
-      lastIdentificationType.value = 'plant'
+      applyPlantSelection(topResult)
     } else {
-      identifyError.value = 'No plant identified in this image.'
+      identifyError.value = t('upload.identification.noPlant')
     }
   } catch (err: unknown) {
     const message = err instanceof Error
@@ -249,6 +312,9 @@ const identifyBird = async () => {
   isIdentifying.value = true
   identifyError.value = null
   identifyLowConfidence.value = null
+  plantMatches.value = []
+  showPlantChooser.value = false
+  selectedPlantResult.value = null
 
   try {
     const response = await api.identifyBird(file.value)
@@ -306,6 +372,10 @@ const onFileChange = async (e: Event) => {
   identifyError.value = null
   identifyLowConfidence.value = null
   lastIdentificationType.value = null
+  plantMatches.value = []
+  showPlantChooser.value = false
+  selectedPlantResult.value = null
+  isWildlife.value = true
   coordinates.value = null
   coordinateSource.value = null
 
@@ -362,6 +432,10 @@ const removeFile = () => {
   identifyError.value = null
   identifyLowConfidence.value = null
   lastIdentificationType.value = null
+  plantMatches.value = []
+  showPlantChooser.value = false
+  selectedPlantResult.value = null
+  isWildlife.value = true
   coordinates.value = null
   coordinateSource.value = null
   if (preview.value) {
@@ -404,6 +478,16 @@ const handleSubmit = async () => {
 
 onUnmounted(() => {
   if (preview.value) URL.revokeObjectURL(preview.value)
+})
+
+watch(isWildlife, () => {
+  if (
+    selectedPlantResult.value
+    && identificationDone.value
+    && lastIdentificationType.value === 'plant'
+  ) {
+    applyPlantSelection(selectedPlantResult.value, { updateText: false })
+  }
 })
 </script>
 
@@ -520,6 +604,49 @@ onUnmounted(() => {
         {{ identifyLowConfidence }}
       </p>
 
+      <div v-if="showPlantChooser && plantMatches.length" class="space-y-2 rounded-lg border border-amber-200 bg-amber-50 p-3">
+        <p class="text-sm font-medium text-amber-800">
+          {{ t('upload.identification.topMatches') }}
+        </p>
+        <ul class="space-y-2">
+          <li
+            v-for="match in plantMatches"
+            :key="`${match.species.scientificName}-${match.score}`"
+            class="flex items-center justify-between gap-3 rounded-md border border-amber-200 bg-white px-3 py-2"
+          >
+            <div class="flex min-w-0 items-center gap-3">
+              <div class="h-14 w-14 shrink-0 overflow-hidden rounded-md border border-stone-200 bg-stone-100">
+                <img
+                  v-if="getPlantCandidateImage(match)"
+                  :src="getPlantCandidateImage(match) || ''"
+                  :alt="match.species.scientificNameWithoutAuthor"
+                  class="h-full w-full object-cover"
+                >
+                <div v-else class="flex h-full w-full items-center justify-center text-[10px] text-stone-500">
+                  {{ t('upload.identification.noReferenceImage') }}
+                </div>
+              </div>
+
+              <div class="min-w-0">
+              <p class="truncate text-sm font-medium text-stone-800">
+                {{ match.species.scientificNameWithoutAuthor }}
+              </p>
+              <p class="text-xs text-stone-500">
+                {{ t('upload.identification.confidence', { score: Math.round((match.score ?? 0) * 100) }) }}
+              </p>
+            </div>
+            </div>
+            <button
+              type="button"
+              class="btn-secondary shrink-0 rounded-md px-2 py-1 text-xs"
+              @click="selectLowConfidencePlantMatch(match)"
+            >
+              {{ t('upload.identification.useMatch') }}
+            </button>
+          </li>
+        </ul>
+      </div>
+
       <!-- Identification error -->
       <p v-if="identifyError" class="alert-warn">
         {{ identifyError }}
@@ -568,6 +695,20 @@ onUnmounted(() => {
             {{ tag }}
           </span>
         </div>
+      </div>
+
+      <div v-if="identificationDone && lastIdentificationType === 'plant' && selectedPlantResult" class="rounded-lg border border-stone-200 bg-white p-3">
+        <label class="flex items-start gap-2 text-sm text-stone-700">
+          <input
+            v-model="isWildlife"
+            type="checkbox"
+            class="mt-0.5 h-4 w-4 rounded border-stone-300 text-emerald-600 focus:ring-emerald-500"
+          >
+          <span>
+            <span class="font-medium">{{ t('upload.identification.wildlife') }}</span>
+            <span class="block text-xs text-stone-500">{{ t('upload.identification.wildlifeHelp') }}</span>
+          </span>
+        </label>
       </div>
 
       <!-- Upload progress -->

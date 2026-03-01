@@ -18,6 +18,24 @@ export interface PlantNetResult {
   species: PlantNetSpecies
   gbif?: { id: string }
   powo?: { id: string }
+  images?: Array<{
+    organ?: string
+    citation?: string
+    image?: string
+    url?: string | {
+      o?: string
+      m?: string
+      s?: string
+    }
+  }>
+  similarImages?: Array<{
+    image?: string
+    url?: string | {
+      o?: string
+      m?: string
+      s?: string
+    }
+  }>
 }
 
 export interface PlantNetResponse {
