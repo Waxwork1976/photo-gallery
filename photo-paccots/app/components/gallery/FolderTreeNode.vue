@@ -44,7 +44,7 @@ const localizedLabel = computed(() => {
 
 <template>
   <li>
-    <div class="flex items-center gap-1">
+    <div class="flex min-w-0 items-center gap-1">
       <button
         v-if="hasChildren"
         type="button"
@@ -68,7 +68,7 @@ const localizedLabel = computed(() => {
 
       <button
         type="button"
-        class="rounded px-2 py-0.5 text-left text-sm transition-colors"
+        class="min-w-0 flex-1 truncate rounded px-2 py-0.5 text-left text-sm transition-colors"
         :class="isSelected ? 'bg-emerald-100 text-emerald-800' : 'text-stone-600 hover:bg-stone-100'"
         @click="emit('select', node.path)"
       >

@@ -70,7 +70,7 @@ const formattedSize = computed(() => {
         <span
           v-for="tag in image.tags.slice(0, 4)"
           :key="tag"
-          class="rounded-full bg-stone-100 px-2 py-0.5 text-xs font-medium text-stone-600"
+          class="max-w-full truncate rounded-full bg-stone-100 px-2 py-0.5 text-xs font-medium text-stone-600"
         >
           {{ tag }}
         </span>
@@ -79,11 +79,11 @@ const formattedSize = computed(() => {
         </span>
       </div>
 
-      <div class="mt-2 flex items-center justify-between text-xs text-stone-500">
-        <time :datetime="image.uploadedAt">
+      <div class="mt-2 flex min-w-0 items-center justify-between gap-2 text-xs text-stone-500">
+        <time class="truncate" :datetime="image.uploadedAt">
           {{ new Date(image.uploadedAt).toLocaleDateString() }}
         </time>
-        <span>{{ formattedSize }}</span>
+        <span class="shrink-0">{{ formattedSize }}</span>
       </div>
     </div>
   </article>

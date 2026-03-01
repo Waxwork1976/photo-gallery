@@ -343,7 +343,7 @@ useHead({
 </script>
 
 <template>
-  <div class="relative isolate">
+  <div class="relative isolate overflow-x-hidden">
     <div
       v-if="pageBackgroundImageUrl"
       class="pointer-events-none fixed inset-0 -z-10"
@@ -379,8 +379,8 @@ useHead({
     </div>
 
     <section class="mb-8 grid gap-6 lg:grid-cols-[260px_1fr]">
-      <section class="space-y-3">
-        <div class="flex gap-2">
+      <section class="min-w-0 space-y-3">
+        <div class="flex flex-wrap gap-2">
           <button
             type="button"
             class="btn-secondary rounded-md px-3 py-1.5 text-xs"
@@ -408,7 +408,7 @@ useHead({
         />
       </section>
 
-      <section class="space-y-6">
+      <section class="min-w-0 space-y-6">
         <GalleryImageGrid
           v-if="loading"
           :images="[]"
