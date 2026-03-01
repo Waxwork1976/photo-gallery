@@ -30,6 +30,7 @@ const draft = ref<Record<SupportedLocale, TranslationEntryDictionary>>({
   de: {},
   it: {},
 })
+const lastSavedSnapshot = ref('')
 
 const orderedKeys = computed(() => {
   const allKeys = new Set<string>(Object.keys(defaultLocales.en))
@@ -121,6 +122,34 @@ const toDefaultEntries = (locale: SupportedLocale): TranslationEntryDictionary =
   return entries
 }
 
+const snapshotDraft = (locales: Record<SupportedLocale, TranslationEntryDictionary>) => {
+  const normalized: Record<SupportedLocale, Record<string, { value: string, autoTranslate: boolean }>> = {
+    en: {},
+    fr: {},
+    de: {},
+    it: {},
+  }
+
+  for (const locale of supportedLocales) {
+    const source = locales[locale] ?? {}
+    const keys = Object.keys(source).sort((a, b) => a.localeCompare(b))
+    for (const key of keys) {
+      const entry = source[key]
+      if (!entry) continue
+      normalized[locale][key] = {
+        value: entry.value ?? '',
+        autoTranslate: Boolean(entry.autoTranslate),
+      }
+    }
+  }
+
+  return JSON.stringify(normalized)
+}
+
+const hasUnsavedChanges = computed(() => {
+  return snapshotDraft(draft.value) !== lastSavedSnapshot.value
+})
+
 const applyLocales = (locales: Record<SupportedLocale, TranslationEntryDictionary>) => {
   draft.value = {
     en: { ...toDefaultEntries('en'), ...locales.en },
@@ -128,6 +157,7 @@ const applyLocales = (locales: Record<SupportedLocale, TranslationEntryDictionar
     de: { ...toDefaultEntries('de'), ...locales.de },
     it: { ...toDefaultEntries('it'), ...locales.it },
   }
+  lastSavedSnapshot.value = snapshotDraft(draft.value)
 }
 
 const getTargetLocales = (): SupportedLocale[] | undefined => {
@@ -225,7 +255,31 @@ watch(selectedLocale, () => {
   }
 })
 
-onMounted(load)
+const handleBeforeUnload = (event: BeforeUnloadEvent) => {
+  if (!hasUnsavedChanges.value)
+    return
+  event.preventDefault()
+  event.returnValue = ''
+}
+
+onBeforeRouteLeave(() => {
+  if (!import.meta.client || !hasUnsavedChanges.value)
+    return true
+  return window.confirm(t('translations.unsavedChangesWarning'))
+})
+
+onMounted(() => {
+  load()
+  if (import.meta.client) {
+    window.addEventListener('beforeunload', handleBeforeUnload)
+  }
+})
+
+onUnmounted(() => {
+  if (import.meta.client) {
+    window.removeEventListener('beforeunload', handleBeforeUnload)
+  }
+})
 </script>
 
 <template>

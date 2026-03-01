@@ -127,6 +127,7 @@ const defaultEn: TranslationDictionary = {
   'translations.successUpdateOne': 'Translation updated in draft.',
   'translations.autoTranslateOn': 'Auto-translation enabled (click to lock)',
   'translations.autoTranslateOff': 'Auto-translation locked (click to unlock)',
+  'translations.unsavedChangesWarning': 'You have unsaved translation changes. Leave this page anyway?',
 
   'poweredBy.title': 'Thanks to:',
   'poweredBy.subtitle': 'Technologies and APIs used by Photo Paccots.',
