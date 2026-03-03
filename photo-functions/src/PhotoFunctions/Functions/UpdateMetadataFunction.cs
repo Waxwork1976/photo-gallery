@@ -18,17 +18,20 @@ public sealed class UpdateMetadataFunction
     private readonly IJwtValidationService _jwtService;
     private readonly IPhotoTableService _tableService;
     private readonly IFolderTreeService _folderTreeService;
+    private readonly ISpeciesEnrichmentQueueService _speciesEnrichmentQueueService;
     private readonly ILogger<UpdateMetadataFunction> _logger;
 
     public UpdateMetadataFunction(
         IJwtValidationService jwtService,
         IPhotoTableService tableService,
         IFolderTreeService folderTreeService,
+        ISpeciesEnrichmentQueueService speciesEnrichmentQueueService,
         ILogger<UpdateMetadataFunction> logger)
     {
         _jwtService = jwtService;
         _tableService = tableService;
         _folderTreeService = folderTreeService;
+        _speciesEnrichmentQueueService = speciesEnrichmentQueueService;
         _logger = logger;
     }
 
@@ -82,6 +85,7 @@ public sealed class UpdateMetadataFunction
         entity.FolderPathsCsv = string.Join(",", resolved.FolderPaths);
 
         await _tableService.UpdateAsync(entity);
+        await TryEnqueuePlantEnrichmentAsync(entity, req.HttpContext.RequestAborted);
 
         _logger.LogInformation("Updated metadata for photo {RowKey}", id);
 
@@ -107,5 +111,31 @@ public sealed class UpdateMetadataFunction
             return (null, new ObjectResult(new ErrorResponse("User not authorized")) { StatusCode = StatusCodes.Status403Forbidden });
 
         return (principal, null);
+    }
+
+    private async Task TryEnqueuePlantEnrichmentAsync(PhotoEntity entity, CancellationToken cancellationToken)
+    {
+        if (!string.Equals(entity.SpeciesType, "plant", StringComparison.Ordinal))
+            return;
+        if (string.IsNullOrWhiteSpace(entity.ScientificName))
+            return;
+
+        var message = new SpeciesEnrichmentQueueMessage(
+            ImageId: entity.RowKey,
+            SpeciesType: "plant",
+            ScientificName: entity.ScientificName,
+            TaxonomyOrder: entity.TaxonomyOrder,
+            TaxonomyFamily: entity.TaxonomyFamily,
+            TaxonomyGenus: entity.TaxonomyGenus,
+            CorrelationId: Guid.NewGuid().ToString("n"));
+
+        try
+        {
+            await _speciesEnrichmentQueueService.EnqueueAsync(message, cancellationToken);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "Failed to enqueue plant enrichment for image {ImageId}", entity.RowKey);
+        }
     }
 }

@@ -18,6 +18,7 @@ public sealed class SaveMetadataFunction
     private readonly IPhotoTableService _tableService;
     private readonly IBlobStorageService _blobService;
     private readonly IFolderTreeService _folderTreeService;
+    private readonly ISpeciesEnrichmentQueueService _speciesEnrichmentQueueService;
     private readonly ILogger<SaveMetadataFunction> _logger;
 
     public SaveMetadataFunction(
@@ -25,12 +26,14 @@ public sealed class SaveMetadataFunction
         IPhotoTableService tableService,
         IBlobStorageService blobService,
         IFolderTreeService folderTreeService,
+        ISpeciesEnrichmentQueueService speciesEnrichmentQueueService,
         ILogger<SaveMetadataFunction> logger)
     {
         _jwtService = jwtService;
         _tableService = tableService;
         _blobService = blobService;
         _folderTreeService = folderTreeService;
+        _speciesEnrichmentQueueService = speciesEnrichmentQueueService;
         _logger = logger;
     }
 
@@ -107,6 +110,7 @@ public sealed class SaveMetadataFunction
         _logger.LogInformation("Saved metadata for blob {BlobName} as entity {RowKey}",
             body.BlobName, inserted.RowKey);
 
+        await TryEnqueuePlantEnrichmentAsync(inserted, req.HttpContext.RequestAborted);
         await RecomputeFolderAssignmentsBestEffortAsync();
 
         return new ObjectResult(new SaveMetadataResponse(true, inserted.RowKey, fullUrl, thumbnail.Url))
@@ -177,6 +181,32 @@ public sealed class SaveMetadataFunction
         catch (Exception ex)
         {
             _logger.LogWarning(ex, "Folder assignment auto-recompute failed after upload");
+        }
+    }
+
+    private async Task TryEnqueuePlantEnrichmentAsync(PhotoEntity entity, CancellationToken cancellationToken)
+    {
+        if (!string.Equals(entity.SpeciesType, "plant", StringComparison.Ordinal))
+            return;
+        if (string.IsNullOrWhiteSpace(entity.ScientificName))
+            return;
+
+        var message = new SpeciesEnrichmentQueueMessage(
+            ImageId: entity.RowKey,
+            SpeciesType: "plant",
+            ScientificName: entity.ScientificName,
+            TaxonomyOrder: entity.TaxonomyOrder,
+            TaxonomyFamily: entity.TaxonomyFamily,
+            TaxonomyGenus: entity.TaxonomyGenus,
+            CorrelationId: Guid.NewGuid().ToString("n"));
+
+        try
+        {
+            await _speciesEnrichmentQueueService.EnqueueAsync(message, cancellationToken);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "Failed to enqueue plant enrichment for image {ImageId}", entity.RowKey);
         }
     }
 }
