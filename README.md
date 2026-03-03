@@ -9,6 +9,7 @@ A personal nature and garden photography gallery built on Azure.
   - full image grid at leaf folders
   - optional `Year/Month` navigation mode built from currently selected species context
 - **Species metadata enrichment:** Added multilingual common-name enrichment (`en/fr/de/it`) and normalized taxonomy metadata for plants, birds, and insects.
+  - Plant flow now returns PlantNet results immediately, then enriches common names asynchronously via Azure Queue + queue-trigger worker.
 - **Search with suggestions:** Added search by common name and taxonomy with backend suggestions after 3 typed characters (gallery + manage).
 - **Configurable slideshow settings:** Added admin settings page to control:
   - number of photos
@@ -16,6 +17,7 @@ A personal nature and garden photography gallery built on Azure.
   - fade transition duration (with guard so transition cannot exceed interval)
   - visibility of the map section on the public `/project` page
 - **Public project page:** Added `/project` page with localized long-form project description and optional OpenStreetMap markers built from photo coordinates.
+- **Taxonomy suggestion draft UI:** Added a leaf-gallery `Suggest taxonomy change` flow with auth-aware form fields (authenticated identity vs guest email + CAPTCHA). Suggestions are stored locally only for now (no transmission yet).
 - **Translation management upgrades:**
   - placeholder protection for `{...}` tokens during machine translation
   - per-translation lock (`autoTranslate`) to prevent overwriting manual edits
@@ -28,10 +30,11 @@ A personal nature and garden photography gallery built on Azure.
 
 ```
 Browser ──► Azure Storage (Static Website)    ──► Nuxt 3 SSG (HTML/JS/CSS)
-       ──► Azure Functions (.NET 8 Isolated)  ──► API (list, upload, auth)
+       ──► Azure Functions (.NET 8 Isolated)  ──► API + background workers
                   │
                   ├── Azure Blob Storage       ──► Photo files (private container)
                   ├── Azure Table Storage      ──► Photo metadata
+                  ├── Azure Queue Storage      ──► Async species enrichment jobs
                   └── Microsoft Entra ID       ──► OAuth 2.0 authentication
 ```
 
@@ -131,6 +134,7 @@ To run the full application (gallery + upload + plant/bird/insect identification
     - `Gemini__BaseUrl` (expected: `https://generativelanguage.googleapis.com`)
     - `Gemini__TimeoutSeconds` (example: `30`)
   - Also used to enrich multilingual common names (`en/fr/de/it`) for plants, birds, and insects.
+  - Plant common names are enriched in the background after metadata save (non-blocking upload UX).
 
 #### External API registration checklist
 
@@ -163,6 +167,7 @@ At minimum, set all of the following on Azure Function App:
 - `Gemini__Model`
 - `Gemini__BaseUrl`
 - `Gemini__TimeoutSeconds`
+- `SpeciesEnrichment__QueueName`
 - `Translator__Endpoint`
 - `Translator__ApiKey`
 - `Translator__Region`
@@ -175,6 +180,7 @@ Set these in `photo-paccots/.env` (local) and `.env.production` (deployment):
 - `NUXT_PUBLIC_AZURE_TENANT_ID`
 - `NUXT_PUBLIC_AZURE_REDIRECT_URI`
 - `NUXT_PUBLIC_API_BASE_URL`
+- `NUXT_PUBLIC_TURNSTILE_SITE_KEY` (required for guest taxonomy-suggestion CAPTCHA)
 
 ### 5) Local Tooling
 
@@ -270,6 +276,8 @@ Deployment scripts are in `InstallationScripts/` (gitignored). Run in order:
   - `Gemini__Model`
   - `Gemini__BaseUrl`
   - `Gemini__TimeoutSeconds`
+- If species enrichment queue settings were missing/changed, run `fix_add_species_enrichment_settings.sh` to update only:
+  - `SpeciesEnrichment__QueueName`
 
 ### Example (bash)
 
@@ -304,6 +312,17 @@ export GEMINI_API_KEY="<your-gemini-api-key>"
 # export GEMINI_TIMEOUT_SECONDS="30"
 
 ./InstallationScripts/fix_add_gemini_settings.sh
+```
+
+### Fix species enrichment queue settings only
+
+```bash
+export RG_NAME="rg-photo-gallery"
+export FUNCTION_APP_NAME="wax-photogallery-api"
+# Optional:
+# export SPECIES_ENRICHMENT_QUEUE_NAME="species-enrichment-queue"
+
+./InstallationScripts/fix_add_species_enrichment_settings.sh
 ```
 
 ## Security

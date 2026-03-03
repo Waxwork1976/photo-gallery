@@ -9,6 +9,8 @@ const images = ref<ImageDto[]>([])
 const loading = ref(true)
 const error = ref<string | null>(null)
 const selectedImage = ref<ImageDto | null>(null)
+const suggestionImage = ref<ImageDto | null>(null)
+const taxonomySuggestionFeedback = ref<string | null>(null)
 const folderTree = ref<FolderTreeNodeDto[]>([])
 const folderTagRules = ref<Record<string, string>>({})
 const folderRootLabels = ref<Record<string, string>>({})
@@ -384,6 +386,20 @@ const clearSearch = () => {
   searchError.value = null
 }
 
+const openTaxonomySuggestion = (image: ImageDto) => {
+  if (activeViewMode.value !== 'leaf')
+    return
+  suggestionImage.value = image
+}
+
+const closeTaxonomySuggestion = () => {
+  suggestionImage.value = null
+}
+
+const onTaxonomyDraftSaved = () => {
+  taxonomySuggestionFeedback.value = t('gallery.taxonomySuggest.saved')
+}
+
 const runSearchSuggestions = async (query: string) => {
   const normalized = normalizeSearchText(query)
   if (normalized.length < 3) {
@@ -714,6 +730,11 @@ useHead({
       </section>
 
       <section class="min-w-0 space-y-6">
+        <p v-if="taxonomySuggestionFeedback" class="alert-success">
+          {{ taxonomySuggestionFeedback }}
+          <span class="ml-1 text-emerald-700">{{ t('gallery.taxonomySuggest.savedDetail') }}</span>
+        </p>
+
         <nav class="overflow-x-auto rounded-md border border-stone-200 bg-white px-2 py-1 text-xs text-stone-600">
           <ol class="flex min-w-max items-center gap-1">
             <li
@@ -747,7 +768,9 @@ useHead({
           <GalleryImageGrid
             :images="filteredSearchImages"
             :loading="false"
+            :show-suggest-button="activeViewMode === 'leaf'"
             @select="selectedImage = $event"
+            @suggest-taxonomy="openTaxonomySuggestion"
           />
           <p v-if="filteredSearchImages.length === 0" class="text-sm text-stone-500">
             {{ t('gallery.search.noResults') }}
@@ -758,7 +781,9 @@ useHead({
           <GalleryImageGrid
             :images="leafImages"
             :loading="false"
+            :show-suggest-button="true"
             @select="selectedImage = $event"
+            @suggest-taxonomy="openTaxonomySuggestion"
           />
         </template>
 
@@ -782,6 +807,12 @@ useHead({
     <GalleryImageLightbox
       :image="selectedImage"
       @close="selectedImage = null"
+    />
+
+    <GalleryTaxonomySuggestionModal
+      :image="suggestionImage"
+      @close="closeTaxonomySuggestion"
+      @draft-saved="onTaxonomyDraftSaved"
     />
   </div>
 </template>

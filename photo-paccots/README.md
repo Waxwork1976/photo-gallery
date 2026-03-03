@@ -54,3 +54,4 @@ Output is in `.output/public/`. Deploy to Azure Storage using `5_Deploy_nuxt.ps1
 - `NUXT_PUBLIC_AZURE_REDIRECT_URI`
 - `NUXT_PUBLIC_API_BASE_URL`
 - `NUXT_PUBLIC_SITE_URL` (optional but recommended)
+- `NUXT_PUBLIC_TURNSTILE_SITE_KEY` (required only if guest CAPTCHA is enabled)

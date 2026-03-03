@@ -39,6 +39,7 @@ export default defineNuxtConfig({
       azureRedirectUri: process.env.NUXT_PUBLIC_AZURE_REDIRECT_URI || '',
       apiBaseUrl: process.env.NUXT_PUBLIC_API_BASE_URL || '',
       siteUrl: process.env.NUXT_PUBLIC_SITE_URL || '',
+      turnstileSiteKey: process.env.NUXT_PUBLIC_TURNSTILE_SITE_KEY || '',
     },
   },
 

@@ -4,14 +4,16 @@ import { useTranslations } from '~/composables/useTranslations'
 
 const props = defineProps<{
   image: ImageDto
+  showSuggestButton?: boolean
 }>()
 
 const emit = defineEmits<{
   click: [image: ImageDto]
+  suggestTaxonomy: [image: ImageDto]
 }>()
 
 const loaded = ref(false)
-const { locale } = useTranslations()
+const { locale, t } = useTranslations()
 
 /** Human-readable file size. */
 const formattedSize = computed(() => {
@@ -93,6 +95,16 @@ const localizedCommonName = computed(() => {
           {{ new Date(image.uploadedAt).toLocaleDateString() }}
         </time>
         <span class="shrink-0">{{ formattedSize }}</span>
+      </div>
+
+      <div v-if="showSuggestButton" class="mt-3">
+        <button
+          type="button"
+          class="btn-secondary w-full rounded-md py-1.5 text-xs"
+          @click.stop="emit('suggestTaxonomy', image)"
+        >
+          {{ t('gallery.taxonomySuggest.button') }}
+        </button>
       </div>
     </div>
   </article>

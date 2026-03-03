@@ -23,6 +23,8 @@ var host = new HostBuilder()
             configuration.GetSection(BirdApiOptions.SectionName));
         services.Configure<GeminiOptions>(
             configuration.GetSection(GeminiOptions.SectionName));
+        services.Configure<SpeciesEnrichmentOptions>(
+            configuration.GetSection(SpeciesEnrichmentOptions.SectionName));
         services.Configure<TranslatorOptions>(
             configuration.GetSection(TranslatorOptions.SectionName));
 
@@ -33,6 +35,7 @@ var host = new HostBuilder()
         services.AddSingleton<IFolderTreeService, FolderTreeService>();
         services.AddSingleton<ITranslationService, TranslationService>();
         services.AddSingleton<ISlideshowSettingsService, SlideshowSettingsService>();
+        services.AddSingleton<ISpeciesEnrichmentQueueService, SpeciesEnrichmentQueueService>();
         services.AddHttpClient<ITranslatorService, TranslatorService>();
 
         services.AddHttpClient<IPlantIdentificationService, PlantIdentificationService>();

@@ -5,10 +5,12 @@ import type { ImageDto } from '~/types/image'
 defineProps<{
   images: ImageDto[]
   loading?: boolean
+  showSuggestButton?: boolean
 }>()
 
 const emit = defineEmits<{
   select: [image: ImageDto]
+  suggestTaxonomy: [image: ImageDto]
 }>()
 </script>
 
@@ -51,7 +53,9 @@ const emit = defineEmits<{
         v-for="image in images"
         :key="image.id"
         :image="image"
+        :show-suggest-button="showSuggestButton"
         @click="emit('select', image)"
+        @suggest-taxonomy="emit('suggestTaxonomy', image)"
       />
     </div>
   </section>
