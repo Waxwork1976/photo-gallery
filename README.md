@@ -46,6 +46,24 @@ Browser ──► Azure Storage (Static Website)    ──► Nuxt 3 SSG (HTML/J
 
 **Auth:** Microsoft Entra ID (single tenant). Only authorized users can upload; the gallery is public.
 
+## Global Functioning (End-to-End)
+
+The platform runs as a public static gallery with authenticated management APIs:
+
+1. A visitor opens the Nuxt static site hosted in Azure Storage Static Website.
+2. Public pages call Azure Functions endpoints to fetch gallery metadata (`list-images`, `folder-tree`, `translations`, `slideshow-settings`).
+3. The API reads metadata from Azure Table Storage and generates short-lived SAS read URLs for private photo blobs.
+4. The browser displays images directly from Blob Storage using those SAS URLs.
+
+For authenticated workflows:
+
+1. A manager signs in with Microsoft Entra ID in the front-end (MSAL).
+2. Protected API calls send a bearer token, validated by Azure Functions.
+3. Upload flow requests a write-only SAS URL, uploads the file to Blob Storage, then saves metadata in Table Storage.
+4. Species identification endpoints call PlantNet (plants), RapidAPI bird-classifier (birds), and Gemini (insects).
+5. Background queue workers enrich multilingual common names and persist updates in Table Storage.
+6. Manage pages (images, translations, settings, taxonomy suggestions) update state through secured API endpoints.
+
 ## Project Structure
 
 ```
@@ -92,6 +110,8 @@ PhotoPaccots/
 ## Required Services
 
 To run the full application (gallery + upload + plant/bird/insect identification + multilingual common-name enrichment), these services are required.
+
+For a quick list of where to obtain each required key/ID/URL, see `KEYS-SETUP-README.md`.
 
 ### 1) Microsoft Azure
 
