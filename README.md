@@ -17,7 +17,7 @@ A personal nature and garden photography gallery built on Azure.
   - fade transition duration (with guard so transition cannot exceed interval)
   - visibility of the map section on the public `/project` page
 - **Public project page:** Added `/project` page with localized long-form project description and optional OpenStreetMap markers built from photo coordinates.
-- **Taxonomy suggestion draft UI:** Added a leaf-gallery `Suggest taxonomy change` flow with auth-aware form fields (authenticated identity vs guest email + CAPTCHA). Suggestions are stored locally only for now (no transmission yet).
+- **Taxonomy suggestion management:** Added end-to-end suggestion submission + review workflow. Suggestions are persisted in Azure Table Storage, visible to authenticated managers, and can be accepted/rejected with optional author contact (`mailto:`). Accepted suggestions update image taxonomy metadata and append `Edited following expert request` to description.
 - **Translation management upgrades:**
   - placeholder protection for `{...}` tokens during machine translation
   - per-translation lock (`autoTranslate`) to prevent overwriting manual edits
@@ -152,6 +152,7 @@ At minimum, set all of the following on Azure Function App:
 - `AzureStorage__AccountKey`
 - `AzureStorage__PhotoContainerName`
 - `AzureStorage__PhotoTableName`
+- `AzureStorage__TaxonomySuggestionTableName` (optional, default: `taxonomysuggestions`)
 - `AzureStorage__UsePrivateContainer`
 - `AzureAd__TenantId`
 - `AzureAd__ClientId`
@@ -239,7 +240,12 @@ Runs at `http://localhost:7071`.
 | `/api/identify-bird` | POST | Bearer JWT | Identify bird using RapidAPI |
 | `/api/identify-insect` | POST | Bearer JWT | Identify insect using Gemini (returns multilingual common names + scientific taxonomy) |
 | `/api/search-suggestions` | GET | Public | Search suggestions (common names + taxonomy), active from 3 characters |
+| `/api/taxonomy-suggestions` | POST | Public | Submit a taxonomy suggestion from the gallery |
 | `/api/manage-search-suggestions` | GET | Bearer JWT | Admin search suggestions across all images |
+| `/api/manage-taxonomy-suggestions` | GET | Bearer JWT | List pending taxonomy suggestions |
+| `/api/manage-taxonomy-suggestions/count` | GET | Bearer JWT | Count pending taxonomy suggestions for header badge |
+| `/api/manage-taxonomy-suggestions/{id}/accept` | POST | Bearer JWT | Accept suggestion, update photo metadata, then remove suggestion |
+| `/api/manage-taxonomy-suggestions/{id}/reject` | POST | Bearer JWT | Reject and remove suggestion |
 | `/api/recompute-common-names` | POST | Bearer JWT | Recompute multilingual common names for existing images |
 
 ## Deployment

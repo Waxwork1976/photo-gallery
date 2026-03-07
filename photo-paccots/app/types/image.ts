@@ -88,6 +88,8 @@ export interface UpdateMetadataResponse {
 export interface DeleteImageResponse {
   success: boolean
   id: string
+  deletedSuggestionCount?: number
+  warning?: string
 }
 
 export interface FolderTreeNodeDto {

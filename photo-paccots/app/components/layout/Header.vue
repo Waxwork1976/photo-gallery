@@ -5,6 +5,30 @@ import { useTranslations } from '~/composables/useTranslations'
 const { user, isAuthenticated, login, logout } = useAuth()
 const mobileMenuOpen = ref(false)
 const { t, locale, setLocale, supportedLocales } = useTranslations()
+const api = useApi()
+const route = useRoute()
+const pendingTaxonomySuggestions = ref(0)
+
+const refreshPendingTaxonomySuggestions = async () => {
+  if (!isAuthenticated.value) {
+    pendingTaxonomySuggestions.value = 0
+    return
+  }
+  try {
+    const result = await api.getManageTaxonomySuggestionCount()
+    pendingTaxonomySuggestions.value = Math.max(0, result.pendingCount || 0)
+  } catch {
+    pendingTaxonomySuggestions.value = 0
+  }
+}
+
+watch(isAuthenticated, () => {
+  refreshPendingTaxonomySuggestions()
+}, { immediate: true })
+
+watch(() => route.fullPath, () => {
+  if (isAuthenticated.value) refreshPendingTaxonomySuggestions()
+})
 </script>
 
 <template>
@@ -36,9 +60,15 @@ const { t, locale, setLocale, supportedLocales } = useTranslations()
         <NuxtLink
           v-if="isAuthenticated"
           to="/manage"
-          class="ui-focus-ring ui-transition-color whitespace-nowrap rounded-md text-sm font-medium text-stone-600 hover:text-emerald-700"
+          class="ui-focus-ring ui-transition-color inline-flex items-center gap-1 whitespace-nowrap rounded-md text-sm font-medium text-stone-600 hover:text-emerald-700"
         >
           {{ t('nav.manage') }}
+          <span
+            v-if="pendingTaxonomySuggestions > 0"
+            class="inline-flex min-w-5 items-center justify-center rounded-full bg-emerald-600 px-1.5 text-[10px] font-semibold leading-4 text-white"
+          >
+            {{ pendingTaxonomySuggestions }}
+          </span>
         </NuxtLink>
 
         <select
@@ -100,8 +130,14 @@ const { t, locale, setLocale, supportedLocales } = useTranslations()
         <NuxtLink v-if="isAuthenticated" to="/upload" class="ui-focus-ring ui-transition-color block rounded-md px-3 py-2 text-sm font-medium text-stone-700 hover:bg-stone-100" @click="mobileMenuOpen = false">
           {{ t('nav.upload') }}
         </NuxtLink>
-        <NuxtLink v-if="isAuthenticated" to="/manage" class="ui-focus-ring ui-transition-color block rounded-md px-3 py-2 text-sm font-medium text-stone-700 hover:bg-stone-100" @click="mobileMenuOpen = false">
-          {{ t('nav.manage') }}
+        <NuxtLink v-if="isAuthenticated" to="/manage" class="ui-focus-ring ui-transition-color flex items-center justify-between rounded-md px-3 py-2 text-sm font-medium text-stone-700 hover:bg-stone-100" @click="mobileMenuOpen = false">
+          <span>{{ t('nav.manage') }}</span>
+          <span
+            v-if="pendingTaxonomySuggestions > 0"
+            class="inline-flex min-w-5 items-center justify-center rounded-full bg-emerald-600 px-1.5 text-[10px] font-semibold leading-4 text-white"
+          >
+            {{ pendingTaxonomySuggestions }}
+          </span>
         </NuxtLink>
 
         <div class="mt-2 border-t border-stone-100 pt-2">

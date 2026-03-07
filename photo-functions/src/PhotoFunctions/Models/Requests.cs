@@ -74,3 +74,28 @@ public sealed record ManageSlideshowSettingsRequest(
 public sealed record InsectIdentificationRequest(
     string Locale
 );
+
+public sealed record TaxonomySuggestionTaxonomyPayload(
+    string Order,
+    string Family,
+    string Genus,
+    string ScientificName,
+    string CommonName
+);
+
+public sealed record TaxonomySuggestionRequesterPayload(
+    bool Authenticated,
+    string Name,
+    string Email,
+    string Locale
+);
+
+public sealed record CreateTaxonomySuggestionRequest(
+    string ImageId,
+    string ImageTitle,
+    TaxonomySuggestionTaxonomyPayload SourceTaxonomy,
+    TaxonomySuggestionTaxonomyPayload SuggestedTaxonomy,
+    string Note,
+    TaxonomySuggestionRequesterPayload Requester,
+    string? CaptchaToken
+);

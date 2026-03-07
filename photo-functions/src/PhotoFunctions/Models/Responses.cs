@@ -123,3 +123,43 @@ public sealed record SearchSuggestionsResponse(
     string Locale,
     SearchSuggestionDto[] Suggestions
 );
+
+public sealed record TaxonomySuggestionTaxonomyDto(
+    string Order,
+    string Family,
+    string Genus,
+    string ScientificName,
+    string CommonName
+);
+
+public sealed record TaxonomySuggestionRequesterDto(
+    bool Authenticated,
+    string Name,
+    string Email,
+    string Locale
+);
+
+public sealed record TaxonomySuggestionDto(
+    string Id,
+    string ImageId,
+    string ImageTitle,
+    TaxonomySuggestionTaxonomyDto SourceTaxonomy,
+    TaxonomySuggestionTaxonomyDto SuggestedTaxonomy,
+    string Note,
+    TaxonomySuggestionRequesterDto Requester,
+    string CreatedAt
+);
+
+public sealed record CreateTaxonomySuggestionResponse(
+    bool Success,
+    string Id,
+    string CreatedAt
+);
+
+public sealed record ListTaxonomySuggestionsResponse(
+    TaxonomySuggestionDto[] Suggestions
+);
+
+public sealed record TaxonomySuggestionCountResponse(
+    int PendingCount
+);

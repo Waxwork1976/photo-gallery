@@ -32,6 +32,7 @@ var host = new HostBuilder()
         services.AddSingleton<IJwtValidationService, JwtValidationService>();
         services.AddSingleton<IBlobStorageService, BlobStorageService>();
         services.AddSingleton<IPhotoTableService, PhotoTableService>();
+        services.AddSingleton<ITaxonomySuggestionService, TaxonomySuggestionService>();
         services.AddSingleton<IFolderTreeService, FolderTreeService>();
         services.AddSingleton<ITranslationService, TranslationService>();
         services.AddSingleton<ISlideshowSettingsService, SlideshowSettingsService>();
