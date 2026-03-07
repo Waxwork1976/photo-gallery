@@ -277,7 +277,7 @@ Deployment scripts are in `InstallationScripts/` (gitignored). Run in order:
 3. `2_AppRegistration.sh` — Create Entra ID app registration
 4. `3_1_AzureCognitiveService.sh` — Create Azure AI Translator cognitive account and output endpoint/key
 5. `3_AzureFunction.sh` — Create function app, set CORS and app settings (including Translator settings)
-6. `4_Deploy_function.ps1` — Build and deploy the Azure Functions
+6. `4_Deploy_function.ps1` — Build/deploy Azure Functions and re-apply `SpeciesEnrichment__QueueName`
 7. `5_Deploy_nuxt.ps1` — Generate static site and upload to Azure Storage
 
 ### Deployment Notes
@@ -304,6 +304,12 @@ Deployment scripts are in `InstallationScripts/` (gitignored). Run in order:
   - `Gemini__TimeoutSeconds`
 - If species enrichment queue settings were missing/changed, run `fix_add_species_enrichment_settings.sh` to update only:
   - `SpeciesEnrichment__QueueName`
+- If an existing environment needs a one-shot runtime hardening pass, run `fix_apply_runtime_hardening.sh` to:
+  - enforce private photo container access
+  - normalize Blob/Function CORS (`z1`, remove legacy `z13`)
+  - enforce `SpeciesEnrichment__QueueName` and `AzureStorage__UsePrivateContainer=true`
+  - optionally re-apply Translator/Gemini/Turnstile settings when provided
+- `4_Deploy_function.ps1` now also applies `SpeciesEnrichment__QueueName` after publish as a post-deploy safety step.
 - If Turnstile settings were missing/changed, run `fix_add_turnstile_settings.sh` to update only:
   - `Turnstile__SiteKey`
   - `Turnstile__SecretKey`
