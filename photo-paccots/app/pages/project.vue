@@ -26,8 +26,12 @@ const points = ref<LocationPoint[]>([])
 const selectedYear = ref<number | null>(null)
 
 const mapElement = ref<HTMLElement | null>(null)
+const timelineContainer = ref<HTMLElement | null>(null)
 const shouldShowMap = computed(() => showProjectMap.value && points.value.length > 0)
 const hasTimelineData = computed(() => availableYears.value.length > 0)
+const hoveredMonth = ref<number | null>(null)
+const pinnedMonth = ref<number | null>(null)
+const openMonthPopup = computed<number | null>(() => pinnedMonth.value ?? hoveredMonth.value)
 
 let leafletModule: any = null
 let mapInstance: any = null
@@ -41,6 +45,9 @@ type TimelineImageRecord = {
 }
 
 type SpeciesFirstSeenEntry = {
+  imageId: string
+  imageTitle: string
+  thumbnailUrl: string
   scientificName: string
   commonName: string
   firstSeenAt: Date
@@ -119,6 +126,9 @@ const firstSeenByMonth = computed(() => {
     const existing = firstSeenBySpecies.get(speciesKey)
     if (!existing || record.date < existing.firstSeenAt) {
       firstSeenBySpecies.set(speciesKey, {
+        imageId: record.image.id,
+        imageTitle: record.image.title || record.image.scientificName || record.image.id,
+        thumbnailUrl: record.image.thumbnailUrl || '',
         scientificName: scientificName || '—',
         commonName: localizedCommonNameForImage(record.image) || scientificName || '—',
         firstSeenAt: record.date,
@@ -187,6 +197,51 @@ const timelineMonths = computed<TimelineMonthCell[]>(() => {
   }
   return cells
 })
+
+const closeTimelinePopup = () => {
+  hoveredMonth.value = null
+  pinnedMonth.value = null
+}
+
+const onMonthMouseEnter = (month: number) => {
+  hoveredMonth.value = month
+}
+
+const onMonthMouseLeave = (month: number) => {
+  if (hoveredMonth.value === month)
+    hoveredMonth.value = null
+}
+
+const onMonthFocusIn = (month: number) => {
+  hoveredMonth.value = month
+}
+
+const onMonthFocusOut = (event: FocusEvent, month: number) => {
+  const currentTarget = event.currentTarget as HTMLElement | null
+  const nextTarget = event.relatedTarget as Node | null
+  if (currentTarget && nextTarget && currentTarget.contains(nextTarget))
+    return
+  if (hoveredMonth.value === month)
+    hoveredMonth.value = null
+}
+
+const toggleMonthPopup = (month: number) => {
+  pinnedMonth.value = pinnedMonth.value === month ? null : month
+  hoveredMonth.value = month
+}
+
+const handleDocumentPointerDown = (event: PointerEvent) => {
+  const target = event.target as Node | null
+  if (!target || !timelineContainer.value)
+    return
+  if (!timelineContainer.value.contains(target))
+    closeTimelinePopup()
+}
+
+const handleDocumentKeydown = (event: KeyboardEvent) => {
+  if (event.key === 'Escape')
+    closeTimelinePopup()
+}
 
 const destroyMap = () => {
   markerLayer?.remove()
@@ -287,6 +342,10 @@ watch(points, async () => {
 })
 
 onMounted(async () => {
+  if (import.meta.client) {
+    document.addEventListener('pointerdown', handleDocumentPointerDown)
+    document.addEventListener('keydown', handleDocumentKeydown)
+  }
   await load()
   if (shouldShowMap.value) {
     await nextTick()
@@ -295,6 +354,10 @@ onMounted(async () => {
 })
 
 onUnmounted(() => {
+  if (import.meta.client) {
+    document.removeEventListener('pointerdown', handleDocumentPointerDown)
+    document.removeEventListener('keydown', handleDocumentKeydown)
+  }
   destroyMap()
 })
 </script>
@@ -354,28 +417,79 @@ onUnmounted(() => {
         {{ t('project.timeline.noData') }}
       </p>
 
-      <div v-else class="grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-6">
-        <article
-          v-for="cell in timelineMonths"
-          :key="cell.month"
-          class="rounded-md border p-2.5"
-          :class="cell.intensityClass"
-          :title="cell.tooltipText"
-        >
-          <p class="text-xs font-semibold uppercase tracking-wide opacity-85">
-            {{ cell.monthLabel }}
-          </p>
-          <p class="mt-1 text-lg font-semibold leading-none">
-            {{ cell.count }}
-          </p>
-          <p class="mt-1 text-[11px] opacity-85">
-            {{ t('project.timeline.pictures') }}
-          </p>
-        </article>
+      <div v-else ref="timelineContainer" class="space-y-2">
+        <div class="grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-6">
+          <article
+            v-for="cell in timelineMonths"
+            :key="cell.month"
+            class="relative rounded-md border p-2.5 outline-none"
+            :class="[cell.intensityClass, 'cursor-pointer', openMonthPopup === cell.month ? 'z-[1100]' : '']"
+            :title="cell.tooltipText"
+            tabindex="0"
+            role="button"
+            :aria-expanded="openMonthPopup === cell.month"
+            @mouseenter="onMonthMouseEnter(cell.month)"
+            @mouseleave="onMonthMouseLeave(cell.month)"
+            @focusin="onMonthFocusIn(cell.month)"
+            @focusout="onMonthFocusOut($event, cell.month)"
+            @click="toggleMonthPopup(cell.month)"
+            @keydown.enter.prevent="toggleMonthPopup(cell.month)"
+            @keydown.space.prevent="toggleMonthPopup(cell.month)"
+          >
+            <p class="text-xs font-semibold uppercase tracking-wide opacity-85">
+              {{ cell.monthLabel }}
+            </p>
+            <p class="mt-1 text-lg font-semibold leading-none">
+              {{ cell.count }}
+            </p>
+            <p class="mt-1 text-[11px] opacity-85">
+              {{ t('project.timeline.pictures') }}
+            </p>
+
+            <div
+              v-if="openMonthPopup === cell.month"
+              class="absolute left-0 z-[1100] mt-2 w-[min(24rem,88vw)] rounded-lg border border-stone-200 bg-white p-3 text-stone-800 shadow-xl"
+              @click.stop
+            >
+              <p class="text-xs font-semibold text-stone-900">
+                {{ cell.monthLabel }}: {{ cell.count }} {{ t('project.timeline.pictures') }}
+              </p>
+
+              <p v-if="cell.speciesEntries.length === 0" class="mt-2 text-xs text-stone-600">
+                {{ t('project.timeline.tooltip.none') }}
+              </p>
+
+              <template v-else>
+                <p class="mt-2 text-xs font-medium text-stone-700">
+                  {{ t('project.timeline.tooltip.speciesFirstSeen') }}
+                </p>
+                <ul class="mt-2 max-h-64 space-y-2 overflow-y-auto pr-1">
+                  <li
+                    v-for="entry in cell.speciesEntries"
+                    :key="`${cell.month}:${entry.imageId}:${entry.scientificName}:${entry.firstSeenAt.getTime()}`"
+                    class="flex items-start gap-2 rounded-md border border-stone-200 bg-stone-50 p-2"
+                  >
+                    <img
+                      v-if="entry.thumbnailUrl"
+                      :src="entry.thumbnailUrl"
+                      :alt="t('project.timeline.popup.imageAlt', { name: entry.commonName || entry.scientificName })"
+                      class="h-[50px] w-auto max-w-[84px] flex-shrink-0 rounded border border-stone-200 object-cover"
+                    >
+                    <div class="min-w-0 text-xs text-stone-700">
+                      <p class="truncate font-medium text-stone-900">{{ entry.commonName }}</p>
+                      <p class="truncate italic">{{ entry.scientificName }}</p>
+                      <p>{{ localeDateFormatter.format(entry.firstSeenAt) }}</p>
+                    </div>
+                  </li>
+                </ul>
+              </template>
+            </div>
+          </article>
+        </div>
+        <p class="text-xs text-stone-500">
+          {{ t('project.timeline.popupHint') }}
+        </p>
       </div>
-      <p v-if="hasTimelineData" class="text-xs text-stone-500">
-        {{ t('project.timeline.tooltipHint') }}
-      </p>
     </section>
 
     <section v-if="!loading && !error && shouldShowMap" class="ui-card space-y-3 p-5 sm:p-6">

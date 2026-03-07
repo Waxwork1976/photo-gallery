@@ -46,6 +46,24 @@ Browser ──► Azure Storage (Static Website)    ──► Nuxt 3 SSG (HTML/J
 
 **Auth:** Microsoft Entra ID (single tenant). Only authorized users can upload; the gallery is public.
 
+## Global Functioning (End-to-End)
+
+The platform runs as a public static gallery with authenticated management APIs:
+
+1. A visitor opens the Nuxt static site hosted in Azure Storage Static Website.
+2. Public pages call Azure Functions endpoints to fetch gallery metadata (`list-images`, `folder-tree`, `translations`, `slideshow-settings`).
+3. The API reads metadata from Azure Table Storage and generates short-lived SAS read URLs for private photo blobs.
+4. The browser displays images directly from Blob Storage using those SAS URLs.
+
+For authenticated workflows:
+
+1. A manager signs in with Microsoft Entra ID in the front-end (MSAL).
+2. Protected API calls send a bearer token, validated by Azure Functions.
+3. Upload flow requests a write-only SAS URL, uploads the file to Blob Storage, then saves metadata in Table Storage.
+4. Species identification endpoints call PlantNet (plants), RapidAPI bird-classifier (birds), and Gemini (insects).
+5. Background queue workers enrich multilingual common names and persist updates in Table Storage.
+6. Manage pages (images, translations, settings, taxonomy suggestions) update state through secured API endpoints.
+
 ## Project Structure
 
 ```
@@ -92,6 +110,8 @@ PhotoPaccots/
 ## Required Services
 
 To run the full application (gallery + upload + plant/bird/insect identification + multilingual common-name enrichment), these services are required.
+
+For a quick list of where to obtain each required key/ID/URL, see `KEYS-SETUP-README.md`.
 
 ### 1) Microsoft Azure
 
@@ -257,7 +277,7 @@ Deployment scripts are in `InstallationScripts/` (gitignored). Run in order:
 3. `2_AppRegistration.sh` — Create Entra ID app registration
 4. `3_1_AzureCognitiveService.sh` — Create Azure AI Translator cognitive account and output endpoint/key
 5. `3_AzureFunction.sh` — Create function app, set CORS and app settings (including Translator settings)
-6. `4_Deploy_function.ps1` — Build and deploy the Azure Functions
+6. `4_Deploy_function.ps1` — Build/deploy Azure Functions and re-apply `SpeciesEnrichment__QueueName`
 7. `5_Deploy_nuxt.ps1` — Generate static site and upload to Azure Storage
 
 ### Deployment Notes
@@ -284,6 +304,12 @@ Deployment scripts are in `InstallationScripts/` (gitignored). Run in order:
   - `Gemini__TimeoutSeconds`
 - If species enrichment queue settings were missing/changed, run `fix_add_species_enrichment_settings.sh` to update only:
   - `SpeciesEnrichment__QueueName`
+- If an existing environment needs a one-shot runtime hardening pass, run `fix_apply_runtime_hardening.sh` to:
+  - enforce private photo container access
+  - normalize Blob/Function CORS (`z1`, remove legacy `z13`)
+  - enforce `SpeciesEnrichment__QueueName` and `AzureStorage__UsePrivateContainer=true`
+  - optionally re-apply Translator/Gemini/Turnstile settings when provided
+- `4_Deploy_function.ps1` now also applies `SpeciesEnrichment__QueueName` after publish as a post-deploy safety step.
 - If Turnstile settings were missing/changed, run `fix_add_turnstile_settings.sh` to update only:
   - `Turnstile__SiteKey`
   - `Turnstile__SecretKey`
