@@ -19,6 +19,7 @@ public sealed class DeleteImageFunction
     private readonly IPhotoTableService _tableService;
     private readonly IBlobStorageService _blobService;
     private readonly IFolderTreeService _folderTreeService;
+    private readonly ITaxonomySuggestionService _taxonomySuggestionService;
     private readonly ILogger<DeleteImageFunction> _logger;
 
     public DeleteImageFunction(
@@ -26,12 +27,14 @@ public sealed class DeleteImageFunction
         IPhotoTableService tableService,
         IBlobStorageService blobService,
         IFolderTreeService folderTreeService,
+        ITaxonomySuggestionService taxonomySuggestionService,
         ILogger<DeleteImageFunction> logger)
     {
         _jwtService = jwtService;
         _tableService = tableService;
         _blobService = blobService;
         _folderTreeService = folderTreeService;
+        _taxonomySuggestionService = taxonomySuggestionService;
         _logger = logger;
     }
 
@@ -64,12 +67,25 @@ public sealed class DeleteImageFunction
         }
 
         await _tableService.DeleteAsync(id);
+        var deletedSuggestionCount = await _taxonomySuggestionService.DeleteByImageIdAsync(id);
 
         await RecomputeFolderAssignmentsBestEffortAsync();
 
         _logger.LogInformation("Deleted photo {RowKey}", id);
 
-        return new OkObjectResult(new { success = true, id });
+        string? warning = null;
+        if (deletedSuggestionCount > 0)
+        {
+            warning = $"Deleted {deletedSuggestionCount} linked taxonomy suggestion(s) for this image.";
+        }
+
+        return new OkObjectResult(new
+        {
+            success = true,
+            id,
+            deletedSuggestionCount,
+            warning,
+        });
     }
 
     private async Task<(ClaimsPrincipal? principal, IActionResult? error)> AuthorizeAsync(HttpRequest req)

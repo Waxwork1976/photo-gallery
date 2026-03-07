@@ -9,6 +9,7 @@ public sealed class AzureStorageOptions
     public string AccountKey { get; set; } = string.Empty;
     public string PhotoContainerName { get; set; } = "photos";
     public string PhotoTableName { get; set; } = "photos";
+    public string TaxonomySuggestionTableName { get; set; } = "taxonomysuggestions";
 
     /// <summary>
     /// When true, read SAS tokens are generated for each image URL.

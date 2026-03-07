@@ -25,6 +25,12 @@ import type {
   TranslateSingleTranslationRequest,
   TranslationsResponse,
 } from '~/types/translation'
+import type {
+  CreateTaxonomySuggestionRequest,
+  CreateTaxonomySuggestionResponse,
+  ListTaxonomySuggestionsResponse,
+  TaxonomySuggestionCountResponse,
+} from '~/types/taxonomySuggestion'
 
 interface ApiError {
   message: string
@@ -111,6 +117,15 @@ export const useApi = () => {
       limit: String(limit),
     })
     return fetchWithAuth<SearchSuggestionsResponse>(`/api/search-suggestions?${searchParams.toString()}`)
+  }
+
+  const createTaxonomySuggestion = async (
+    payload: CreateTaxonomySuggestionRequest,
+  ): Promise<CreateTaxonomySuggestionResponse> => {
+    return fetchWithAuth<CreateTaxonomySuggestionResponse>('/api/taxonomy-suggestions', {
+      method: 'POST',
+      body: JSON.stringify(payload),
+    })
   }
 
   // ---- Protected endpoints ----
@@ -263,6 +278,28 @@ export const useApi = () => {
     })
   }
 
+  const listManageTaxonomySuggestions = async (): Promise<ListTaxonomySuggestionsResponse> => {
+    return fetchWithAuth<ListTaxonomySuggestionsResponse>('/api/manage-taxonomy-suggestions')
+  }
+
+  const getManageTaxonomySuggestionCount = async (): Promise<TaxonomySuggestionCountResponse> => {
+    return fetchWithAuth<TaxonomySuggestionCountResponse>('/api/manage-taxonomy-suggestions/count')
+  }
+
+  const acceptManageTaxonomySuggestion = async (id: string): Promise<{ success: boolean, id: string }> => {
+    return fetchWithAuth<{ success: boolean, id: string }>(`/api/manage-taxonomy-suggestions/${id}/accept`, {
+      method: 'POST',
+      body: JSON.stringify({}),
+    })
+  }
+
+  const rejectManageTaxonomySuggestion = async (id: string): Promise<{ success: boolean, id: string }> => {
+    return fetchWithAuth<{ success: boolean, id: string }>(`/api/manage-taxonomy-suggestions/${id}/reject`, {
+      method: 'POST',
+      body: JSON.stringify({}),
+    })
+  }
+
   /** Update metadata (title, description, tags) for an image. */
   const updateMetadata = async (
     id: string,
@@ -411,6 +448,7 @@ export const useApi = () => {
     getTranslations,
     getSlideshowSettings,
     getSearchSuggestions,
+    createTaxonomySuggestion,
     listAllImages,
     getManageFolderTree,
     updateManageFolderTree,
@@ -422,6 +460,10 @@ export const useApi = () => {
     translateKeyManageTranslations,
     getManageSlideshowSettings,
     getManageSearchSuggestions,
+    listManageTaxonomySuggestions,
+    getManageTaxonomySuggestionCount,
+    acceptManageTaxonomySuggestion,
+    rejectManageTaxonomySuggestion,
     updateManageSlideshowSettings,
     generateSasUrl,
     saveMetadata,

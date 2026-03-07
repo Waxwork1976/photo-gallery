@@ -18,6 +18,7 @@ const { t, locale } = useTranslations()
 const images = ref<ImageDto[]>([])
 const loading = ref(true)
 const error = ref<string | null>(null)
+const deleteWarning = ref<string | null>(null)
 
 // Folder tree management
 const folderTreeError = ref<string | null>(null)
@@ -44,6 +45,7 @@ let searchDebounceTimer: ReturnType<typeof setTimeout> | null = null
 const fetchImages = async () => {
   loading.value = true
   error.value = null
+  deleteWarning.value = null
   try {
     const res = await api.listAllImages()
     images.value = res.images
@@ -135,8 +137,9 @@ const executeDelete = async () => {
   if (!deletingId.value) return
   deleting.value = true
   try {
-    await api.deleteImage(deletingId.value)
+    const result = await api.deleteImage(deletingId.value)
     images.value = images.value.filter(i => i.id !== deletingId.value)
+    deleteWarning.value = result.warning || null
     deletingId.value = null
   } catch {
     error.value = t('manage.failedLoad')
@@ -371,6 +374,9 @@ onMounted(() => {
     <!-- Error -->
     <p v-if="error" class="alert-error">
       {{ error }}
+    </p>
+    <p v-if="deleteWarning" class="mt-3 rounded-lg border border-amber-300 bg-amber-50 px-3 py-2 text-sm text-amber-800">
+      {{ t('manage.delete.warningPrefix') }} {{ deleteWarning }}
     </p>
 
     <!-- Empty state -->

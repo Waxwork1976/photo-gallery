@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import type { ImageDto } from '~/types/image'
+import type { CreateTaxonomySuggestionRequest } from '~/types/taxonomySuggestion'
 import { useTranslations } from '~/composables/useTranslations'
 
 declare global {
@@ -9,33 +10,6 @@ declare global {
       remove: (widgetId: string) => void
     }
   }
-}
-
-type DraftPayload = {
-  imageId: string
-  imageTitle: string
-  sourceTaxonomy: {
-    order: string
-    family: string
-    genus: string
-    scientificName: string
-    commonName: string
-  }
-  suggestedTaxonomy: {
-    order: string
-    family: string
-    genus: string
-    scientificName: string
-    commonName: string
-    note: string
-  }
-  requester: {
-    authenticated: boolean
-    name: string
-    email: string
-  }
-  captchaToken?: string
-  createdAt: string
 }
 
 const props = defineProps<{
@@ -50,8 +24,9 @@ const emit = defineEmits<{
 const { t, locale } = useTranslations()
 const { user, isAuthenticated } = useAuth()
 const config = useRuntimeConfig()
+const api = useApi()
 
-const guestEmail = ref('')
+const requesterEmail = ref('')
 const suggestedOrder = ref('')
 const suggestedFamily = ref('')
 const suggestedGenus = ref('')
@@ -59,6 +34,7 @@ const suggestedScientificName = ref('')
 const suggestedCommonName = ref('')
 const note = ref('')
 const formError = ref<string | null>(null)
+const submitting = ref(false)
 const captchaToken = ref('')
 const captchaContainer = ref<HTMLElement | null>(null)
 const widgetId = ref<string | null>(null)
@@ -76,7 +52,7 @@ const localizedCurrentCommonName = computed(() => {
 })
 
 const resetForm = () => {
-  guestEmail.value = ''
+  requesterEmail.value = (user.value?.email || '').trim()
   suggestedOrder.value = props.image?.taxonomyOrder ?? ''
   suggestedFamily.value = props.image?.taxonomyFamily ?? ''
   suggestedGenus.value = props.image?.taxonomyGenus ?? ''
@@ -143,31 +119,33 @@ const renderTurnstile = async () => {
   })
 }
 
-const saveDraft = () => {
+const saveDraft = async () => {
   const image = props.image
   if (!image) return
 
   formError.value = null
   const authenticated = isAuthenticated.value
-  const email = authenticated ? (user.value?.email || '') : guestEmail.value.trim()
+  const email = requesterEmail.value.trim()
+
+  if (!email) {
+    formError.value = t('taxonomySuggest.requiredEmail')
+    return
+  }
+  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+    formError.value = t('taxonomySuggest.invalidEmail')
+    return
+  }
 
   if (!authenticated) {
-    if (!email) {
-      formError.value = t('taxonomySuggest.requiredEmail')
-      return
-    }
-    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
-      formError.value = t('taxonomySuggest.invalidEmail')
-      return
-    }
     if (isCaptchaConfigured.value && !captchaToken.value) {
       formError.value = t('taxonomySuggest.captchaMissing')
       return
     }
   }
 
-  const createdAt = new Date().toISOString()
-  const payload: DraftPayload = {
+  submitting.value = true
+  try {
+    const payload: CreateTaxonomySuggestionRequest = {
     imageId: image.id,
     imageTitle: image.title || localizedCurrentCommonName.value || image.scientificName || '',
     sourceTaxonomy: {
@@ -183,27 +161,26 @@ const saveDraft = () => {
       genus: suggestedGenus.value.trim(),
       scientificName: suggestedScientificName.value.trim(),
       commonName: suggestedCommonName.value.trim(),
-      note: note.value.trim(),
     },
+    note: note.value.trim(),
     requester: {
       authenticated,
       name: user.value?.name || '',
       email,
+      locale: locale.value,
     },
     captchaToken: authenticated ? undefined : captchaToken.value,
-    createdAt,
   }
 
-  if (import.meta.client) {
-    const storageKey = 'taxonomy-suggestion-drafts'
-    const existingRaw = localStorage.getItem(storageKey)
-    const existing = existingRaw ? (JSON.parse(existingRaw) as DraftPayload[]) : []
-    existing.push(payload)
-    localStorage.setItem(storageKey, JSON.stringify(existing))
+    const created = await api.createTaxonomySuggestion(payload)
+    emit('draftSaved', { imageId: image.id, savedAt: created.createdAt })
+    emit('close')
+  } catch (err: unknown) {
+    const detail = (err as { message?: string })?.message?.trim()
+    formError.value = detail || t('gallery.loadError')
+  } finally {
+    submitting.value = false
   }
-
-  emit('draftSaved', { imageId: image.id, savedAt: createdAt })
-  emit('close')
 }
 
 watch(
@@ -213,6 +190,15 @@ watch(
     resetForm()
     await nextTick()
     await renderTurnstile()
+  },
+)
+
+watch(
+  () => [isAuthenticated.value, user.value?.email],
+  () => {
+    if (!requesterEmail.value.trim()) {
+      requesterEmail.value = (user.value?.email || '').trim()
+    }
   },
 )
 
@@ -305,20 +291,20 @@ onUnmounted(() => {
               <p class="mt-1">
                 {{ t('taxonomySuggest.authenticatedAs') }} {{ user?.name || user?.email || '—' }}
               </p>
-              <p>{{ t('taxonomySuggest.email') }}: {{ user?.email || '—' }}</p>
             </template>
 
-            <template v-else>
-              <label class="mt-2 block">
-                <span class="block text-xs font-medium text-stone-600">{{ t('taxonomySuggest.email') }}</span>
-                <input
-                  v-model="guestEmail"
-                  type="email"
-                  class="ui-input-compact"
-                  :placeholder="t('taxonomySuggest.emailPlaceholder')"
-                  required
-                >
-              </label>
+            <label class="mt-2 block">
+              <span class="block text-xs font-medium text-stone-600">{{ t('taxonomySuggest.email') }}</span>
+              <input
+                v-model="requesterEmail"
+                type="email"
+                class="ui-input-compact"
+                :placeholder="t('taxonomySuggest.emailPlaceholder')"
+                required
+              >
+            </label>
+
+            <template v-if="!isAuthenticated">
               <div v-if="isCaptchaConfigured" class="mt-2">
                 <p class="mb-1 block text-xs font-medium text-stone-600">
                   {{ t('taxonomySuggest.captchaLabel') }}
@@ -342,7 +328,7 @@ onUnmounted(() => {
             <button class="btn-secondary" @click="emit('close')">
               {{ t('taxonomySuggest.cancel') }}
             </button>
-            <button class="btn-primary" @click="saveDraft">
+            <button class="btn-primary" :disabled="submitting" @click="saveDraft">
               {{ t('taxonomySuggest.saveDraft') }}
             </button>
           </div>
