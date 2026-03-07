@@ -278,6 +278,13 @@ Deployment scripts are in `InstallationScripts/` (gitignored). Run in order:
   - `Gemini__TimeoutSeconds`
 - If species enrichment queue settings were missing/changed, run `fix_add_species_enrichment_settings.sh` to update only:
   - `SpeciesEnrichment__QueueName`
+- If Turnstile settings were missing/changed, run `fix_add_turnstile_settings.sh` to update only:
+  - `Turnstile__SiteKey`
+  - `Turnstile__SecretKey`
+  - Note: `Turnstile__SiteKey` is public by design in the browser. Keep it out of git, inject at deploy time.
+- `5_Deploy_nuxt.ps1` injects `NUXT_PUBLIC_TURNSTILE_SITE_KEY` from:
+  - `TURNSTILE_SITE_KEY` env var (preferred), or
+  - `Turnstile__SiteKey` in Function App settings (if `RG_NAME` and `FUNCTION_APP_NAME` are set in the shell)
 
 ### Example (bash)
 
