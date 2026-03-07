@@ -9,6 +9,7 @@ const defaultEn: TranslationDictionary = {
   'nav.project': 'The project',
   'nav.upload': 'Upload',
   'nav.manage': 'Manage',
+  'footer.copyright': '© {year} Photo Paccots — Nature & Garden Photography',
   'footer.thanksTo': 'Thanks to..',
   'auth.signIn': 'Sign in',
   'auth.signOut': 'Sign out',
@@ -116,8 +117,10 @@ const defaultEn: TranslationDictionary = {
   'project.timeline.noData': 'No timeline data available yet.',
   'project.timeline.pictures': 'pictures',
   'project.timeline.tooltipHint': 'Hover a month to see species first photographed during that month.',
+  'project.timeline.popupHint': 'Hover, focus, or click a month to see first-seen species details and thumbnails.',
   'project.timeline.tooltip.none': 'No species first seen this month.',
   'project.timeline.tooltip.speciesFirstSeen': 'Species first seen this month (ordered by date):',
+  'project.timeline.popup.imageAlt': '{name} thumbnail',
   'project.map.title': 'Where is it located',
   'project.map.photoFallbackTitle': 'Photo location',
 
