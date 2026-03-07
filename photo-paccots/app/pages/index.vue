@@ -14,9 +14,10 @@ const taxonomySuggestionFeedback = ref<string | null>(null)
 const folderTree = ref<FolderTreeNodeDto[]>([])
 const folderTagRules = ref<Record<string, string>>({})
 const folderRootLabels = ref<Record<string, string>>({})
-const folderMode = ref<'primary' | 'yearMonth'>('primary')
+const folderMode = ref<'primary' | 'yearMonth' | 'alphabetical'>('primary')
 const selectedPrimaryFolderPath = ref<string | null>(null)
 const selectedYearMonthPath = ref<string | null>(null)
+const selectedAlphabeticalPath = ref<string | null>(null)
 const slideshowIntervalSeconds = ref(4)
 const slideshowPhotoCount = ref(8)
 const slideshowTransitionSeconds = ref(0.8)
@@ -176,6 +177,11 @@ type YearMonthNode = {
   children: YearMonthNode[]
 }
 
+type AlphabeticalNode = {
+  name: string
+  path: string
+}
+
 const findFirstYearMonthLeafPath = (node: YearMonthNode | null): string | null => {
   if (!node) return null
   if ((node.children?.length ?? 0) === 0) return node.path
@@ -271,12 +277,107 @@ const imageInYearMonthPath = (img: ImageDto, path: string) => {
 const yearMonthImagesForPath = (path: string) =>
   primaryContextImages.value.filter(img => imageInYearMonthPath(img, path))
 
+const alphabeticalDisplayNameForImage = (image: ImageDto) => {
+  const localized = (image.commonNames?.[locale.value] ?? '').trim()
+  if (localized) return localized
+  return (image.scientificName ?? '').trim()
+}
+
+const alphabeticalLetterForName = (value: string) => {
+  const normalized = value
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .trim()
+  if (!normalized) return '#'
+  const firstChar = normalized[0]?.toUpperCase() ?? '#'
+  return /^[A-Z]$/.test(firstChar) ? firstChar : '#'
+}
+
+const alphabeticalBuckets = computed(() => {
+  const buckets = new Map<string, ImageDto[]>()
+  for (const image of images.value) {
+    const displayName = alphabeticalDisplayNameForImage(image)
+    const letter = alphabeticalLetterForName(displayName)
+    if (!buckets.has(letter)) {
+      buckets.set(letter, [])
+    }
+    buckets.get(letter)!.push(image)
+  }
+
+  for (const [letter, entries] of buckets) {
+    entries.sort((a, b) => {
+      const nameA = alphabeticalDisplayNameForImage(a)
+      const nameB = alphabeticalDisplayNameForImage(b)
+      const byName = nameA.localeCompare(nameB, locale.value)
+      if (byName !== 0) return byName
+      return a.id.localeCompare(b.id)
+    })
+    buckets.set(letter, entries)
+  }
+
+  return buckets
+})
+
+const alphabeticalTree = computed<AlphabeticalNode[]>(() => {
+  const letters = [...alphabeticalBuckets.value.keys()].sort((a, b) => {
+    if (a === '#') return 1
+    if (b === '#') return -1
+    return a.localeCompare(b, locale.value)
+  })
+
+  return letters.map(letter => ({
+    name: letter,
+    path: `az/${letter}`,
+  }))
+})
+
+const alphabeticalTreeAsFolderNodes = computed<FolderTreeNodeDto[]>(() => {
+  return alphabeticalTree.value.map(node => ({
+    name: node.name,
+    path: node.path,
+    children: [],
+  }))
+})
+
+const alphabeticalTreeIndex = computed(() => {
+  const map = new Map<string, AlphabeticalNode>()
+  for (const node of alphabeticalTree.value) {
+    map.set(node.path, node)
+  }
+  return map
+})
+
+const selectedAlphabeticalNode = computed(() => {
+  if (!selectedAlphabeticalPath.value) return null
+  return alphabeticalTreeIndex.value.get(selectedAlphabeticalPath.value) ?? null
+})
+
+const alphabeticalViewMode = computed<'root' | 'leaf'>(() => {
+  if (!selectedAlphabeticalNode.value) return 'root'
+  return 'leaf'
+})
+
+const alphabeticalDisplayFolderNodes = computed<FolderTreeNodeDto[]>(() => {
+  if (alphabeticalViewMode.value === 'root') return alphabeticalTreeAsFolderNodes.value
+  return []
+})
+
+const alphabeticalImagesForPath = (path: string) => {
+  const match = path.match(/^az\/(.+)$/)
+  if (!match?.[1]) return []
+  return alphabeticalBuckets.value.get(match[1]) ?? []
+}
+
 const activeViewMode = computed<'root' | 'intermediate' | 'leaf'>(() => {
-  return folderMode.value === 'primary' ? primaryViewMode.value : yearMonthViewMode.value
+  if (folderMode.value === 'primary') return primaryViewMode.value
+  if (folderMode.value === 'yearMonth') return yearMonthViewMode.value
+  return alphabeticalViewMode.value
 })
 
 const activeDisplayFolderNodes = computed<FolderTreeNodeDto[]>(() => {
-  return folderMode.value === 'primary' ? primaryDisplayFolderNodes.value : yearMonthDisplayFolderNodes.value
+  if (folderMode.value === 'primary') return primaryDisplayFolderNodes.value
+  if (folderMode.value === 'yearMonth') return yearMonthDisplayFolderNodes.value
+  return alphabeticalDisplayFolderNodes.value
 })
 
 const activeSlideshowSourceImages = computed(() => {
@@ -288,7 +389,7 @@ const activeSlideshowSourceImages = computed(() => {
   }
   if (yearMonthViewMode.value === 'intermediate' && selectedYearMonthPath.value)
     return yearMonthImagesForPath(selectedYearMonthPath.value)
-  return primaryContextImages.value
+  return folderMode.value === 'yearMonth' ? primaryContextImages.value : images.value
 })
 
 watch([activeSlideshowSourceImages, slideshowPhotoCount], () => {
@@ -307,8 +408,12 @@ const leafImages = computed(() => {
     if (!selectedPrimaryFolderPath.value) return []
     return imagesForSubtree(selectedPrimaryFolderPath.value)
   }
-  if (!selectedYearMonthPath.value) return []
-  return yearMonthImagesForPath(selectedYearMonthPath.value)
+  if (folderMode.value === 'yearMonth') {
+    if (!selectedYearMonthPath.value) return []
+    return yearMonthImagesForPath(selectedYearMonthPath.value)
+  }
+  if (!selectedAlphabeticalPath.value) return []
+  return alphabeticalImagesForPath(selectedAlphabeticalPath.value)
 })
 
 const folderCardPreviewMap = ref<Record<string, ImageDto | null>>({})
@@ -478,13 +583,27 @@ watch(
 )
 
 watch(
+  [folderMode, selectedAlphabeticalPath, alphabeticalTreeIndex],
+  () => {
+    if (folderMode.value !== 'alphabetical') return
+    const selectedPath = selectedAlphabeticalPath.value
+    if (!selectedPath) return
+    if (alphabeticalTreeIndex.value.has(selectedPath)) return
+    selectedAlphabeticalPath.value = null
+  },
+  { immediate: true },
+)
+
+watch(
   [activeDisplayFolderNodes, images, selectedPrimaryFolderPath, selectedYearMonthPath, folderMode],
   () => {
     const next: Record<string, ImageDto | null> = {}
     for (const node of activeDisplayFolderNodes.value) {
       const candidates = folderMode.value === 'primary'
         ? imagesForSubtree(node.path)
-        : yearMonthImagesForPath(node.path)
+        : folderMode.value === 'yearMonth'
+          ? yearMonthImagesForPath(node.path)
+          : alphabeticalImagesForPath(node.path)
       if (candidates.length === 0) {
         next[node.path] = null
         continue
@@ -570,10 +689,22 @@ const getYearMonthBreadcrumb = (): BreadcrumbItem[] => {
   return items
 }
 
+const getAlphabeticalBreadcrumb = (): BreadcrumbItem[] => {
+  const items: BreadcrumbItem[] = [{ label: t('folders.mode.alphabetical'), path: null }]
+  const selectedPath = selectedAlphabeticalPath.value
+  if (!selectedPath) return items
+
+  const match = selectedPath.match(/^az\/(.+)$/)
+  const letter = match?.[1]
+  if (!letter) return items
+  items.push({ label: letter, path: selectedPath })
+  return items
+}
+
 const activeBreadcrumb = computed(() => {
-  return folderMode.value === 'primary'
-    ? getPrimaryBreadcrumb()
-    : getYearMonthBreadcrumb()
+  if (folderMode.value === 'primary') return getPrimaryBreadcrumb()
+  if (folderMode.value === 'yearMonth') return getYearMonthBreadcrumb()
+  return getAlphabeticalBreadcrumb()
 })
 
 const navigateToBreadcrumb = (path: string | null) => {
@@ -581,7 +712,52 @@ const navigateToBreadcrumb = (path: string | null) => {
     selectedPrimaryFolderPath.value = path
     return
   }
-  selectedYearMonthPath.value = path
+  if (folderMode.value === 'yearMonth') {
+    selectedYearMonthPath.value = path
+    return
+  }
+  selectedAlphabeticalPath.value = path
+}
+
+const activeTree = computed<FolderTreeNodeDto[]>(() => {
+  if (folderMode.value === 'primary') return folderTree.value
+  if (folderMode.value === 'yearMonth') return yearMonthTreeAsFolderNodes.value
+  return alphabeticalTreeAsFolderNodes.value
+})
+
+const activeRootLabels = computed<Record<string, string>>(() => {
+  if (folderMode.value === 'primary') return folderRootLabels.value
+  return {}
+})
+
+const activeSelectedPath = computed<string | null>(() => {
+  if (folderMode.value === 'primary') return selectedPrimaryFolderPath.value
+  if (folderMode.value === 'yearMonth') return selectedYearMonthPath.value
+  return selectedAlphabeticalPath.value
+})
+
+const onSelectTreePath = (path: string) => {
+  if (folderMode.value === 'primary') {
+    selectedPrimaryFolderPath.value = path
+    return
+  }
+  if (folderMode.value === 'yearMonth') {
+    selectedYearMonthPath.value = path
+    return
+  }
+  selectedAlphabeticalPath.value = path
+}
+
+const onClearTreeSelection = () => {
+  if (folderMode.value === 'primary') {
+    selectedPrimaryFolderPath.value = null
+    return
+  }
+  if (folderMode.value === 'yearMonth') {
+    selectedYearMonthPath.value = null
+    return
+  }
+  selectedAlphabeticalPath.value = null
 }
 
 const folderCards = computed(() => {
@@ -718,14 +894,22 @@ useHead({
           >
             {{ t('folders.mode.yearMonth') }}
           </button>
+          <button
+            type="button"
+            class="btn-secondary rounded-md px-3 py-1.5 text-xs"
+            :class="folderMode === 'alphabetical' ? '!bg-emerald-100 !text-emerald-800' : ''"
+            @click="folderMode = 'alphabetical'"
+          >
+            {{ t('folders.mode.alphabetical') }}
+          </button>
         </div>
 
         <GalleryFolderTree
-          :tree="folderMode === 'primary' ? folderTree : yearMonthTreeAsFolderNodes"
-          :root-labels="folderMode === 'primary' ? folderRootLabels : {}"
-          :selected-path="folderMode === 'primary' ? selectedPrimaryFolderPath : selectedYearMonthPath"
-          @select="folderMode === 'primary' ? selectedPrimaryFolderPath = $event : selectedYearMonthPath = $event"
-          @clear="folderMode === 'primary' ? selectedPrimaryFolderPath = null : selectedYearMonthPath = null"
+          :tree="activeTree"
+          :root-labels="activeRootLabels"
+          :selected-path="activeSelectedPath"
+          @select="onSelectTreePath"
+          @clear="onClearTreeSelection"
         />
       </section>
 
@@ -797,7 +981,7 @@ useHead({
 
           <GalleryFolderCardsGrid
             :cards="folderCards"
-            @select="folderMode === 'primary' ? selectedPrimaryFolderPath = $event : selectedYearMonthPath = $event"
+            @select="onSelectTreePath"
           />
         </template>
       </section>

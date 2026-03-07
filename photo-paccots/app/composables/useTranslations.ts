@@ -35,6 +35,7 @@ const defaultEn: TranslationDictionary = {
   'folders.root.birds': 'Birds',
   'folders.mode.primary': 'Species',
   'folders.mode.yearMonth': 'Year/Month',
+  'folders.mode.alphabetical': 'A-Z',
 
   'upload.page.title': 'Upload a Photo',
   'upload.page.subtitle': 'Select an image, add some details, and share it with the gallery.',
